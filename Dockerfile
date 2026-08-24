@@ -3,6 +3,10 @@ FROM composer:2.8 AS vendor
 WORKDIR /app
 
 COPY composer.json composer.lock ./
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libicu-dev \
+    && docker-php-ext-install intl \
+    && rm -rf /var/lib/apt/lists/*
 RUN composer install \
     --no-interaction \
     --no-dev \
