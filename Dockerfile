@@ -1,9 +1,12 @@
-FROM composer:2.8 AS vendor
+FROM php:8.3-cli-bookworm AS vendor
 
 WORKDIR /app
 
+COPY --from=composer:2.8 /usr/bin/composer /usr/local/bin/composer
 COPY composer.json composer.lock ./
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        unzip \
         libicu-dev \
     && docker-php-ext-install intl \
     && rm -rf /var/lib/apt/lists/*
