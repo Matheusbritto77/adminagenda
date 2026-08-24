@@ -42,6 +42,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
         libicu-dev \
         libzip-dev \
+        libfreetype6-dev \
+        libjpeg62-turbo-dev \
         libpng-dev \
         libonig-dev \
         libxml2-dev \
