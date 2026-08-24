@@ -1,0 +1,17 @@
+.git
+.github
+.idea
+.vscode
+node_modules
+vendor
+storage/logs
+storage/framework/cache
+storage/framework/sessions
+storage/framework/views
+bootstrap/cache
+.env
+.env.local
+.env.*.local
+npm-debug.log
+yarn-error.log
+docker-compose.override.yml

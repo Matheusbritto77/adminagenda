@@ -26,3 +26,24 @@ Próximo passo:
 1. Registrar os recursos do Filament para empresas, equipes e automações.
 2. Implementar o cliente gRPC com idempotência e retries.
 3. Conectar a fila para envio/recebimento de mensagens.
+
+## Docker
+
+Subir o ambiente local:
+
+```bash
+docker compose up -d --build
+```
+
+URL do painel:
+
+```text
+http://localhost:8080
+```
+
+Serviços incluidos no compose:
+
+- `app` — PHP-FPM com Laravel + Filament
+- `nginx` — servidor web
+- `mysql` — banco local do painel
+- `redis` — cache e filas
