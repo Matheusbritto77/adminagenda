@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
         libicu-dev \
         libzip-dev \
+        libpq-dev \
     && docker-php-ext-install intl \
     && docker-php-ext-install zip \
     && rm -rf /var/lib/apt/lists/*
@@ -61,6 +62,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         mbstring \
         opcache \
         pcntl \
+        pdo_pgsql \
         pdo_mysql \
         zip \
     && rm -rf /var/lib/apt/lists/*

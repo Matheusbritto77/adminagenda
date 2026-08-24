@@ -2,14 +2,32 @@
 set -eu
 
 if [ -n "${DB_HOST:-}" ]; then
-    echo "Waiting for database at ${DB_HOST}:${DB_PORT:-3306}..."
+    if [ "${DB_CONNECTION:-mysql}" = "pgsql" ]; then
+        db_port="${DB_PORT:-5432}"
+    else
+        db_port="${DB_PORT:-3306}"
+    fi
+
+    echo "Waiting for database at ${DB_HOST}:${db_port}..."
     until php -r '
 $host = getenv("DB_HOST");
-$port = (int) (getenv("DB_PORT") ?: 3306);
+$driver = getenv("DB_CONNECTION") ?: "mysql";
+$port = (int) (getenv("DB_PORT") ?: ($driver === "pgsql" ? 5432 : 3306));
 $user = getenv("DB_USERNAME") ?: "root";
 $password = getenv("DB_PASSWORD") ?: "";
 $database = getenv("DB_DATABASE") ?: "";
-$dsn = "mysql:host={$host};port={$port};dbname={$database}";
+switch ($driver) {
+    case "pgsql":
+        $dsn = "pgsql:host={$host};port={$port};dbname={$database}";
+        break;
+    case "mysql":
+    case "mariadb":
+        $dsn = "mysql:host={$host};port={$port};dbname={$database}";
+        break;
+    default:
+        $dsn = "{$driver}:host={$host};port={$port};dbname={$database}";
+        break;
+}
 try {
     new PDO($dsn, $user, $password, [PDO::ATTR_TIMEOUT => 5]);
     exit(0);
