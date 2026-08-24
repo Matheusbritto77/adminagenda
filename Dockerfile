@@ -1,4 +1,4 @@
-FROM php:8.3-cli-bookworm AS vendor
+FROM php:8.4-cli-bookworm AS vendor
 
 WORKDIR /app
 
@@ -30,7 +30,7 @@ COPY vite.config.js ./
 
 RUN npm run build
 
-FROM php:8.3-fpm-bookworm AS app
+FROM php:8.4-fpm-bookworm AS app
 
 WORKDIR /var/www/html
 
