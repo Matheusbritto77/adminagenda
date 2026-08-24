@@ -8,7 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
         unzip \
         libicu-dev \
+        libzip-dev \
     && docker-php-ext-install intl \
+    && docker-php-ext-install zip \
     && rm -rf /var/lib/apt/lists/*
 RUN composer install \
     --no-interaction \
