@@ -75,8 +75,8 @@ mkdir -p /var/www/html/storage/framework/cache/data \
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache 2>/dev/null || true
 chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache 2>/dev/null || true
 
-if [ -f /var/www/html/artisan ]; then
-    php /var/www/html/artisan storage:link --force 2>/dev/null || true
+if [ -f /var/www/html/artisan ] && [ ! -L /var/www/html/public/storage ] && [ ! -d /var/www/html/public/storage ]; then
+    php /var/www/html/artisan storage:link --force >/dev/null 2>&1 || true
 fi
 
 exec "$@"
