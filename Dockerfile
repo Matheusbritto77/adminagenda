@@ -73,8 +73,9 @@ COPY --from=vendor /app/vendor /var/www/html/vendor
 COPY --from=frontend /app/public/build /var/www/html/public/build
 COPY . /var/www/html
 
-COPY docker/nginx/default.conf /etc/nginx/sites-available/default
+RUN rm -rf /etc/nginx/sites-enabled/* /etc/nginx/conf.d/*
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+RUN mkdir -p /etc/nginx/sites-enabled && ln -sf /etc/nginx/conf.d/default.conf /etc/nginx/sites-enabled/default
 
 RUN mkdir -p storage/app/public storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && php artisan storage:link --force || true \
