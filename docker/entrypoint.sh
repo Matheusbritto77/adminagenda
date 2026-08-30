@@ -79,5 +79,12 @@ if [ -f /var/www/html/artisan ] && [ ! -L /var/www/html/public/storage ] && [ ! 
     php /var/www/html/artisan storage:link --force >/dev/null 2>&1 || true
 fi
 
+# If container main command is php-fpm, start php-fpm in background and exec nginx on port 80
+if [ "$1" = "php-fpm" ]; then
+    echo "Starting PHP-FPM in background and Nginx on port 80..."
+    php-fpm -D
+    exec nginx -g 'daemon off;'
+fi
+
 exec "$@"
 

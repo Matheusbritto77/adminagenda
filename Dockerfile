@@ -41,6 +41,7 @@ ENV COMPOSER_ALLOW_SUPERUSER=1 \
     PHP_OPCACHE_VALIDATE_TIMESTAMPS=0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        nginx \
         git \
         unzip \
         libicu-dev \
@@ -72,15 +73,18 @@ COPY --from=vendor /app/vendor /var/www/html/vendor
 COPY --from=frontend /app/public/build /var/www/html/public/build
 COPY . /var/www/html
 
+COPY docker/nginx/default.conf /etc/nginx/sites-available/default
+COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+
 RUN mkdir -p storage/app/public storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && php artisan storage:link --force || true \
-    && chown -R www-data:www-data storage bootstrap/cache public \
+    && chown -R www-data:www-data storage bootstrap/cache public /var/lib/nginx /var/log/nginx \
     && php artisan package:discover --ansi
+
+EXPOSE 80
 
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/entrypoint
-
-USER www-data
 
 ENTRYPOINT ["entrypoint"]
 CMD ["php-fpm"]
