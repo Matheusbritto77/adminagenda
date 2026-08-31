@@ -7,8 +7,8 @@ use App\Models\WhatsAppNotificationQueue;
 use App\Services\WhatsApp\GrpcBridgeClient;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
-use Filament\Resources\Components\Tab;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
 
 class ListWhatsAppQueues extends ListRecords
