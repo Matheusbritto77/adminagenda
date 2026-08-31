@@ -6,7 +6,7 @@ if [ ! -f /var/www/html/.env ] && [ -f /var/www/html/.env.example ]; then
     cp /var/www/html/.env.example /var/www/html/.env
 fi
 
-# Load non-empty .env variables into shell environment so .env takes precedence over container defaults
+# Load variables from .env as fallback if not already set in container environment
 if [ -f /var/www/html/.env ]; then
     eval $(php -r '
     $lines = file("/var/www/html/.env", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -16,7 +16,8 @@ if [ -f /var/www/html/.env ]; then
             list($k, $v) = explode("=", $line, 2);
             $k = trim($k);
             $v = trim($v, " \"\t\r\n");
-            if (preg_match("/^[A-Za-z_][A-Za-z0-9_]*$/", $k) && $v !== "") {
+            $envVal = getenv($k);
+            if (preg_match("/^[A-Za-z_][A-Za-z0-9_]*$/", $k) && $v !== "" && ($envVal === false || $envVal === "")) {
                 echo "export " . $k . "=" . escapeshellarg($v) . "\n";
             }
         }
