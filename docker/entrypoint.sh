@@ -1,32 +1,48 @@
 #!/usr/bin/env sh
 set -eu
 
+# Ensure .env file exists
+if [ ! -f /var/www/html/.env ] && [ -f /var/www/html/.env.example ]; then
+    cp /var/www/html/.env.example /var/www/html/.env
+fi
+
 # Ensure config cache is cleared so container environment variables take effect
 if [ -f /var/www/html/artisan ]; then
     php /var/www/html/artisan config:clear || true
 fi
 
-# Detect DB configuration
-DB_DRIVER="${DB_CONNECTION:-mysql}"
-DB_HOST_VAL="${DB_HOST:-}"
-
-if [ -n "$DB_HOST_VAL" ]; then
-    if [ -z "${DB_PORT:-}" ]; then
-        if [ "$DB_DRIVER" = "pgsql" ]; then
-            export DB_PORT="5432"
-        else
-            export DB_PORT="3306"
-        fi
-    fi
-
-    echo "Waiting for database (${DB_DRIVER}) at ${DB_HOST_VAL}:${DB_PORT}..."
-    until php -r '
+# Run PHP script to resolve DB credentials and wait for connection
+php -r '
 $host = getenv("DB_HOST");
-$driver = getenv("DB_CONNECTION") ?: "mysql";
-$port = (int) (getenv("DB_PORT") ?: ($driver === "pgsql" ? 5432 : 3306));
-$user = getenv("DB_USERNAME") ?: "root";
-$password = getenv("DB_PASSWORD") ?: "";
-$database = getenv("DB_DATABASE") ?: "";
+$driver = getenv("DB_CONNECTION");
+$port = getenv("DB_PORT");
+$user = getenv("DB_USERNAME");
+$password = getenv("DB_PASSWORD");
+$database = getenv("DB_DATABASE");
+
+if (file_exists("/var/www/html/.env")) {
+    $env = file_get_contents("/var/www/html/.env");
+    if (!$host && preg_match("/^DB_HOST=(.*)$/m", $env, $m)) $host = trim($m[1], "\"' \r\n");
+    if (!$driver && preg_match("/^DB_CONNECTION=(.*)$/m", $env, $m)) $driver = trim($m[1], "\"' \r\n");
+    if (!$port && preg_match("/^DB_PORT=(.*)$/m", $env, $m)) $port = trim($m[1], "\"' \r\n");
+    if (!$user && preg_match("/^DB_USERNAME=(.*)$/m", $env, $m)) $user = trim($m[1], "\"' \r\n");
+    if (!$password && preg_match("/^DB_PASSWORD=(.*)$/m", $env, $m)) $password = trim($m[1], "\"' \r\n");
+    if (!$database && preg_match("/^DB_DATABASE=(.*)$/m", $env, $m)) $database = trim($m[1], "\"' \r\n");
+}
+
+$driver = $driver ?: "mysql";
+$host = $host ?: "";
+$port = (int) ($port ?: ($driver === "pgsql" ? 5432 : 3306));
+$user = $user ?: "mysql";
+$password = $password ?: "";
+$database = $database ?: "";
+
+if (empty($host)) {
+    echo "No DB_HOST configured. Skipping database wait.\n";
+    exit(0);
+}
+
+echo "Waiting for database ({$driver}) at {$host}:{$port}...\n";
 
 switch ($driver) {
     case "pgsql":
@@ -41,28 +57,27 @@ switch ($driver) {
         break;
 }
 
-try {
-    $pdo = new PDO($dsn, $user, $password, [
-        PDO::ATTR_TIMEOUT => 5,
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-    ]);
-    exit(0);
-} catch (Throwable $e) {
-    fwrite(STDERR, "Database connection waiting: " . $e->getMessage() . PHP_EOL);
-    exit(1);
+$attempts = 0;
+while ($attempts < 30) {
+    try {
+        $pdo = new PDO($dsn, $user, $password, [
+            PDO::ATTR_TIMEOUT => 5,
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+        ]);
+        echo "Database connected successfully!\n";
+        exit(0);
+    } catch (Throwable $e) {
+        fwrite(STDERR, "Database connection waiting: " . $e->getMessage() . PHP_EOL);
+        sleep(2);
+        $attempts++;
+    }
 }
-'; do
-        sleep 2
-    done
+exit(1);
+'
 
-    echo "Database connected successfully! Running migrations..."
-    if [ -f /var/www/html/artisan ]; then
-        php /var/www/html/artisan migrate --force || echo "Migration warning: check logs if migration failed."
-    fi
-fi
-
-if [ ! -f /var/www/html/.env ] && [ -f /var/www/html/.env.example ]; then
-    cp /var/www/html/.env.example /var/www/html/.env
+if [ -f /var/www/html/artisan ]; then
+    echo "Running database migrations..."
+    php /var/www/html/artisan migrate --force || echo "Migration warning: check logs if migration failed."
 fi
 
 # Ensure storage directories exist with correct permissions
