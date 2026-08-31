@@ -13,30 +13,24 @@ fi
 
 # Run PHP script to resolve DB credentials and wait for connection
 php -r '
-$host = getenv("DB_HOST");
-$driver = getenv("DB_CONNECTION");
-$port = getenv("DB_PORT");
-$user = getenv("DB_USERNAME");
-$password = getenv("DB_PASSWORD");
-$database = getenv("DB_DATABASE");
-
+$env = [];
 if (file_exists("/var/www/html/.env")) {
     $lines = file("/var/www/html/.env", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
         $line = trim($line);
         if ($line !== "" && strpos($line, "#") !== 0 && strpos($line, "=") !== false) {
             list($k, $v) = explode("=", $line, 2);
-            $k = trim($k);
-            $v = trim($v, " \"\t\r\n");
-            if ($k === "DB_HOST" && !$host) $host = $v;
-            if ($k === "DB_CONNECTION" && !$driver) $driver = $v;
-            if ($k === "DB_PORT" && !$port) $port = $v;
-            if ($k === "DB_USERNAME" && !$user) $user = $v;
-            if ($k === "DB_PASSWORD" && !$password) $password = $v;
-            if ($k === "DB_DATABASE" && !$database) $database = $v;
+            $env[trim($k)] = trim($v, " \"\t\r\n");
         }
     }
 }
+
+$host = getenv("DB_HOST") ?: ($env["DB_HOST"] ?? "");
+$driver = getenv("DB_CONNECTION") ?: ($env["DB_CONNECTION"] ?? "mysql");
+$port = getenv("DB_PORT") ?: ($env["DB_PORT"] ?? "");
+$user = getenv("DB_USERNAME") ?: ($env["DB_USERNAME"] ?? "mysql");
+$password = getenv("DB_PASSWORD") ?: ($env["DB_PASSWORD"] ?? "");
+$database = getenv("DB_DATABASE") ?: ($env["DB_DATABASE"] ?? "");
 
 $driver = $driver ?: "mysql";
 $host = $host ?: "";
