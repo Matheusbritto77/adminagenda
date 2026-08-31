@@ -6,38 +6,37 @@ if [ ! -f /var/www/html/.env ] && [ -f /var/www/html/.env.example ]; then
     cp /var/www/html/.env.example /var/www/html/.env
 fi
 
-# Ensure config cache is cleared so container environment variables take effect
+# Load .env variables into shell environment so .env takes precedence over container defaults
+if [ -f /var/www/html/.env ]; then
+    eval $(php -r '
+    $lines = file("/var/www/html/.env", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line !== "" && strpos($line, "#") !== 0 && strpos($line, "=") !== false) {
+            list($k, $v) = explode("=", $line, 2);
+            $k = trim($k);
+            $v = trim($v, " \"\t\r\n");
+            if (preg_match("/^[A-Za-z_][A-Za-z0-9_]*$/", $k)) {
+                echo "export " . $k . "=" . escapeshellarg($v) . "\n";
+            }
+        }
+    }
+    ')
+fi
+
+# Ensure config cache is cleared so updated environment variables take effect
 if [ -f /var/www/html/artisan ]; then
     php /var/www/html/artisan config:clear || true
 fi
 
 # Run PHP script to resolve DB credentials and wait for connection
 php -r '
-$env = [];
-if (file_exists("/var/www/html/.env")) {
-    $lines = file("/var/www/html/.env", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if ($line !== "" && strpos($line, "#") !== 0 && strpos($line, "=") !== false) {
-            list($k, $v) = explode("=", $line, 2);
-            $env[trim($k)] = trim($v, " \"\t\r\n");
-        }
-    }
-}
-
-$host = getenv("DB_HOST") ?: ($env["DB_HOST"] ?? "");
-$driver = getenv("DB_CONNECTION") ?: ($env["DB_CONNECTION"] ?? "mysql");
-$port = getenv("DB_PORT") ?: ($env["DB_PORT"] ?? "");
-$user = getenv("DB_USERNAME") ?: ($env["DB_USERNAME"] ?? "mysql");
-$password = getenv("DB_PASSWORD") ?: ($env["DB_PASSWORD"] ?? "");
-$database = getenv("DB_DATABASE") ?: ($env["DB_DATABASE"] ?? "");
-
-$driver = $driver ?: "mysql";
-$host = $host ?: "";
-$port = (int) ($port ?: ($driver === "pgsql" ? 5432 : 3306));
-$user = $user ?: "mysql";
-$password = $password ?: "";
-$database = $database ?: "";
+$driver   = getenv("DB_CONNECTION") ?: "mysql";
+$host     = getenv("DB_HOST") ?: "";
+$port     = (int) (getenv("DB_PORT") ?: ($driver === "pgsql" ? 5432 : 3306));
+$user     = getenv("DB_USERNAME") ?: "mysql";
+$password = getenv("DB_PASSWORD") ?: "";
+$database = getenv("DB_DATABASE") ?: "";
 
 if (empty($host)) {
     echo "No DB_HOST configured. Skipping database wait.\n";
