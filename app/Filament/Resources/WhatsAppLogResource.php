@@ -133,6 +133,82 @@ class WhatsAppLogResource extends Resource
                         'disconnected' => 'Sessão Desconectada',
                     ]),
             ])
+            ->actions([
+                \Filament\Tables\Actions\ViewAction::make()
+                    ->label('Detalhes')
+                    ->icon('heroicon-o-eye')
+                    ->modalHeading(fn ($record) => "WhatsApp Log #{$record->id} - {$record->direction}")
+                    ->modalWidth('2xl')
+                    ->infolist([
+                        \Filament\Infolists\Components\Section::make('Informações da Mensagem')
+                            ->columns(2)
+                            ->schema([
+                                \Filament\Infolists\Components\TextEntry::make('direction')
+                                    ->label('Direção')
+                                    ->badge()
+                                    ->color(fn (string $state): string => match ($state) {
+                                        'outbound' => 'info',
+                                        'inbound' => 'success',
+                                        'system' => 'gray',
+                                        default => 'gray',
+                                    }),
+
+                                \Filament\Infolists\Components\TextEntry::make('status')
+                                    ->label('Status')
+                                    ->badge()
+                                    ->color(fn (string $state): string => match ($state) {
+                                        'sent' => 'success',
+                                        'received' => 'emerald',
+                                        'failed', 'error' => 'danger',
+                                        'connected' => 'success',
+                                        'disconnected' => 'warning',
+                                        default => 'gray',
+                                    }),
+
+                                \Filament\Infolists\Components\TextEntry::make('created_at')
+                                    ->label('Data / Hora')
+                                    ->dateTime('d/m/Y H:i:s'),
+
+                                \Filament\Infolists\Components\TextEntry::make('phone')
+                                    ->label('Telefone WhatsApp')
+                                    ->copyable(),
+
+                                \Filament\Infolists\Components\TextEntry::make('tenant_id')
+                                    ->label('Tenant / Empresa'),
+
+                                \Filament\Infolists\Components\TextEntry::make('message_id')
+                                    ->label('ID da Mensagem')
+                                    ->copyable()
+                                    ->placeholder('-'),
+                            ]),
+
+                        \Filament\Infolists\Components\Section::make('Conteúdo da Mensagem')
+                            ->schema([
+                                \Filament\Infolists\Components\TextEntry::make('message_body')
+                                    ->label('')
+                                    ->columnSpanFull()
+                                    ->placeholder('Nenhum texto'),
+                            ]),
+
+                        \Filament\Infolists\Components\Section::make('Erro / Stack Trace')
+                            ->visible(fn ($record) => !empty($record->error_message))
+                            ->schema([
+                                \Filament\Infolists\Components\TextEntry::make('error_message')
+                                    ->label('')
+                                    ->color('danger')
+                                    ->columnSpanFull(),
+                            ]),
+
+                        \Filament\Infolists\Components\Section::make('Metadados & Payload')
+                            ->collapsed(false)
+                            ->schema([
+                                \Filament\Infolists\Components\KeyValueEntry::make('metadata')
+                                    ->label('Parâmetros')
+                                    ->columnSpanFull(),
+                            ]),
+                    ]),
+            ])
+            ->recordAction(\Filament\Tables\Actions\ViewAction::class)
             ->defaultSort('id', 'desc');
     }
 

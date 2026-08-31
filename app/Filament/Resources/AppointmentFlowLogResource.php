@@ -113,6 +113,72 @@ class AppointmentFlowLogResource extends Resource
                         'error' => 'Erro / Falha',
                     ]),
             ])
+            ->actions([
+                \Filament\Tables\Actions\ViewAction::make()
+                    ->label('Detalhes')
+                    ->icon('heroicon-o-eye')
+                    ->modalHeading(fn ($record) => "Log #{$record->id} - {$record->title}")
+                    ->modalWidth('2xl')
+                    ->infolist([
+                        \Filament\Infolists\Components\Section::make('Informações Gerais')
+                            ->columns(2)
+                            ->schema([
+                                \Filament\Infolists\Components\TextEntry::make('title')
+                                    ->label('Evento / Título')
+                                    ->weight('bold')
+                                    ->columnSpan(2),
+
+                                \Filament\Infolists\Components\TextEntry::make('channel')
+                                    ->label('Canal')
+                                    ->badge()
+                                    ->color(fn (string $state): string => match ($state) {
+                                        'whatsapp' => 'success',
+                                        'email' => 'info',
+                                        'payment' => 'warning',
+                                        default => 'gray',
+                                    }),
+
+                                \Filament\Infolists\Components\TextEntry::make('level')
+                                    ->label('Nível')
+                                    ->badge()
+                                    ->color(fn (string $state): string => match ($state) {
+                                        'success' => 'success',
+                                        'info' => 'info',
+                                        'warning' => 'warning',
+                                        'error', 'danger' => 'danger',
+                                        default => 'gray',
+                                    }),
+
+                                \Filament\Infolists\Components\TextEntry::make('created_at')
+                                    ->label('Data / Hora')
+                                    ->dateTime('d/m/Y H:i:s'),
+
+                                \Filament\Infolists\Components\TextEntry::make('appointment_id')
+                                    ->label('Agendamento')
+                                    ->formatStateUsing(fn ($state) => $state ? "#{$state}" : 'Nenhum'),
+
+                                \Filament\Infolists\Components\TextEntry::make('user.name')
+                                    ->label('Empresa')
+                                    ->columnSpan(2),
+                            ]),
+
+                        \Filament\Infolists\Components\Section::make('Descrição do Evento')
+                            ->schema([
+                                \Filament\Infolists\Components\TextEntry::make('description')
+                                    ->label('')
+                                    ->columnSpanFull(),
+                            ]),
+
+                        \Filament\Infolists\Components\Section::make('Metadados & Payload JSON')
+                            ->collapsed(false)
+                            ->schema([
+                                \Filament\Infolists\Components\KeyValueEntry::make('metadata')
+                                    ->label('Parâmetros')
+                                    ->columnSpanFull(),
+                            ]),
+                    ]),
+            ])
+            ->recordAction(\Filament\Tables\Actions\ViewAction::class)
             ->defaultSort('id', 'desc');
     }
 
