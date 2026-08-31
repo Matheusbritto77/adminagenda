@@ -6,7 +6,7 @@ if [ ! -f /var/www/html/.env ] && [ -f /var/www/html/.env.example ]; then
     cp /var/www/html/.env.example /var/www/html/.env
 fi
 
-# Load .env variables into shell environment so .env takes precedence over container defaults
+# Load non-empty .env variables into shell environment so .env takes precedence over container defaults
 if [ -f /var/www/html/.env ]; then
     eval $(php -r '
     $lines = file("/var/www/html/.env", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -16,12 +16,27 @@ if [ -f /var/www/html/.env ]; then
             list($k, $v) = explode("=", $line, 2);
             $k = trim($k);
             $v = trim($v, " \"\t\r\n");
-            if (preg_match("/^[A-Za-z_][A-Za-z0-9_]*$/", $k)) {
+            if (preg_match("/^[A-Za-z_][A-Za-z0-9_]*$/", $k) && $v !== "") {
                 echo "export " . $k . "=" . escapeshellarg($v) . "\n";
             }
         }
     }
     ')
+fi
+
+# Ensure APP_KEY is set or generate one if missing
+if [ -f /var/www/html/artisan ]; then
+    APP_KEY_VAL="${APP_KEY:-}"
+    if [ -z "$APP_KEY_VAL" ]; then
+        echo "No APP_KEY specified. Generating application key..."
+        php /var/www/html/artisan key:generate --force || true
+        if [ -f /var/www/html/.env ]; then
+            NEW_KEY=$(grep "^APP_KEY=" /var/www/html/.env 2>/dev/null | cut -d'=' -f2-)
+            if [ -n "$NEW_KEY" ]; then
+                export APP_KEY="$NEW_KEY"
+            fi
+        fi
+    fi
 fi
 
 # Ensure config cache is cleared so updated environment variables take effect
