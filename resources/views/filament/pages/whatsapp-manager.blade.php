@@ -42,7 +42,23 @@
         </div>
     @endif
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;" wire:poll.5s>
+    <div
+        x-data="{
+            eventSource: null,
+            init() {
+                try {
+                    this.eventSource = new EventSource('/admin/whatsapp-stream?tenant_id={{ $this->tenantId }}');
+                    this.eventSource.addEventListener('status_change', (e) => {
+                        $wire.$refresh();
+                    });
+                } catch (e) {
+                    console.warn('SSE not supported, falling back to polling');
+                }
+            }
+        }"
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;"
+        wire:poll.10s
+    >
         {{-- Status & Connection Section --}}
         <div>
             <x-filament::section>

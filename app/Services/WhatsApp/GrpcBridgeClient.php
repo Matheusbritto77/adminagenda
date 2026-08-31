@@ -78,9 +78,9 @@ class GrpcBridgeClient
      */
     public function getStatus(string $tenantId = 'default'): array
     {
-        // 1. Try direct HTTP bridge status query
+        // 1. Try direct HTTP bridge status query (source of truth)
         try {
-            $response = Http::timeout(1.5)->get("http://{$this->host}:{$this->httpPort}/status", [
+            $response = Http::timeout(1.2)->get("http://{$this->host}:{$this->httpPort}/status", [
                 'tenant_id' => $tenantId,
             ]);
 
@@ -96,25 +96,23 @@ class GrpcBridgeClient
                 ];
             }
         } catch (Throwable) {
-            // Fallback to shared DB
-        }
+            // Live service is unreachable (instance down/crashed)
+            // Immediately mark disconnected in DB so UI never shows false connected state!
+            try {
+                $session = WhatsAppSession::where('tenant_id', $tenantId)->first();
+                if ($session && $session->status !== 'disconnected') {
+                    $session->update(['status' => 'disconnected', 'qr_code' => null]);
+                }
+            } catch (Throwable) {}
 
-        // 2. Fallback to Shared DB query
-        try {
-            $session = WhatsAppSession::where('tenant_id', $tenantId)->first();
-            if ($session) {
-                return [
-                    'state' => $session->status ?? 'disconnected',
-                    'phone_number' => $session->phone_number ?? '',
-                    'profile_name' => $session->profile_name ?? '',
-                    'tenant_id' => $tenantId,
-                    'qr_code' => $session->qr_code ?? '',
-                    'updated_at' => $session->updated_at?->toIso8601String() ?? now()->toIso8601String(),
-                    'connected_at' => $session->connected_at?->toIso8601String(),
-                ];
-            }
-        } catch (Throwable $e) {
-            Log::warning('[WhatsApp] Error reading session from database: ' . $e->getMessage());
+            return [
+                'state' => 'disconnected',
+                'phone_number' => '',
+                'profile_name' => '',
+                'tenant_id' => $tenantId,
+                'qr_code' => '',
+                'updated_at' => now()->toIso8601String(),
+            ];
         }
 
         return [
