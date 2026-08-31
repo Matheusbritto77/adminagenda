@@ -6,7 +6,41 @@
         $phone = $status['phone_number'] ?? '';
         $profileName = $status['profile_name'] ?? '';
         $updatedAt = $status['updated_at'] ?? '';
+        $testResult = $this->connectionTestResult;
     @endphp
+
+    {{-- Diagnostic Test Result Banner --}}
+    @if($testResult)
+        <div style="margin-bottom: 1.5rem;">
+            @if($testResult['success'])
+                <div style="padding: 1rem 1.25rem; border-radius: 0.75rem; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); display: flex; align-items: flex-start; gap: 0.75rem;">
+                    <x-filament::icon icon="heroicon-m-check-circle" style="width: 1.5rem; height: 1.5rem; color: #10b981; flex-shrink: 0;" />
+                    <div style="font-size: 0.875rem;">
+                        <strong style="color: #059669;">Comunicação estabelecida com sucesso!</strong>
+                        <div style="margin-top: 0.25rem; color: #374151; display: flex; flex-wrap: wrap; gap: 1rem; font-family: monospace; font-size: 0.75rem;">
+                            <span>Host: <strong>{{ $testResult['host'] }}</strong></span>
+                            <span>gRPC (:{{ $testResult['grpc_port'] }}): <strong>{{ $testResult['socket_connected'] ? 'ONLINE' : 'OFFLINE' }}</strong></span>
+                            <span>HTTP (:{{ $testResult['http_port'] }}): <strong>{{ $testResult['http_connected'] ? 'ONLINE' : 'OFFLINE' }}</strong></span>
+                            <span>Latência: <strong>{{ $testResult['latency_ms'] }}ms</strong></span>
+                        </div>
+                    </div>
+                </div>
+            @else
+                <div style="padding: 1rem 1.25rem; border-radius: 0.75rem; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); display: flex; align-items: flex-start; gap: 0.75rem;">
+                    <x-filament::icon icon="heroicon-m-x-circle" style="width: 1.5rem; height: 1.5rem; color: #ef4444; flex-shrink: 0;" />
+                    <div style="font-size: 0.875rem;">
+                        <strong style="color: #dc2626;">Falha na comunicação com o agenwpp:</strong>
+                        <p style="margin-top: 0.25rem; color: #6b7280; font-size: 0.8rem;">
+                            {{ $testResult['error'] ?? 'Não foi possível alcançar o host e porta configurados.' }}
+                        </p>
+                        <div style="margin-top: 0.25rem; font-family: monospace; font-size: 0.75rem; color: #4b5563;">
+                            Host testado: <strong>{{ $testResult['host'] }}:{{ $testResult['grpc_port'] }}</strong>
+                        </div>
+                    </div>
+                </div>
+            @endif
+        </div>
+    @endif
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;" wire:poll.5s>
         {{-- Status & Connection Section --}}
@@ -104,14 +138,25 @@
                             </x-filament::button>
                         @endif
 
-                        <x-filament::button
-                            wire:click="refreshStatus"
-                            icon="heroicon-m-arrow-path"
-                            color="gray"
-                            outlined
-                        >
-                            Atualizar Status
-                        </x-filament::button>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                            <x-filament::button
+                                wire:click="testBridgeConnection"
+                                icon="heroicon-m-cpu-chip"
+                                color="info"
+                                outlined
+                            >
+                                Testar gRPC
+                            </x-filament::button>
+
+                            <x-filament::button
+                                wire:click="refreshStatus"
+                                icon="heroicon-m-arrow-path"
+                                color="gray"
+                                outlined
+                            >
+                                Atualizar
+                            </x-filament::button>
+                        </div>
                     </div>
                 </div>
             </x-filament::section>

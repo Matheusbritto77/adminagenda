@@ -27,6 +27,7 @@ class WhatsAppManager extends Page
 
     public ?array $data = [];
     public string $tenantId = 'default';
+    public ?array $connectionTestResult = null;
 
     public function mount(): void
     {
@@ -63,14 +64,41 @@ class WhatsAppManager extends Page
         return $client->getStatus($this->tenantId);
     }
 
+    public function testBridgeConnection(): void
+    {
+        $client = app(GrpcBridgeClient::class);
+        $result = $client->testConnection();
+        $this->connectionTestResult = $result;
+
+        if ($result['success']) {
+            $ports = [];
+            if ($result['socket_connected']) $ports[] = "gRPC (:{$result['grpc_port']})";
+            if ($result['http_connected']) $ports[] = "HTTP (:{$result['http_port']})";
+            $portsStr = implode(' e ', $ports);
+
+            Notification::make()
+                ->title('Comunicação OK!')
+                ->body("Conectado com sucesso em {$result['host']} via {$portsStr} em {$result['latency_ms']}ms.")
+                ->success()
+                ->send();
+        } else {
+            Notification::make()
+                ->title('Falha de Comunicação')
+                ->body("Não foi possível conectar em {$result['host']}:{$result['grpc_port']}. Detalhes: " . ($result['error'] ?? 'Sem resposta'))
+                ->danger()
+                ->persistent()
+                ->send();
+        }
+    }
+
     public function connect(): void
     {
         $client = app(GrpcBridgeClient::class);
         $result = $client->connect($this->tenantId);
 
         Notification::make()
-            ->title('Conexão iniciada')
-            ->body($result['message'] ?? 'Aguardando leitura do QR Code.')
+            ->title('Solicitação de Conexão')
+            ->body($result['message'] ?? 'Conectando ao WhatsApp...')
             ->info()
             ->send();
     }
