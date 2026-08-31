@@ -134,11 +134,13 @@ class WhatsAppLogResource extends Resource
                     ]),
             ])
             ->actions([
-                \Filament\Tables\Actions\ViewAction::make()
+                \Filament\Actions\Action::make('details')
                     ->label('Detalhes')
                     ->icon('heroicon-o-eye')
                     ->modalHeading(fn ($record) => "WhatsApp Log #{$record->id} - {$record->direction}")
                     ->modalWidth('2xl')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Fechar')
                     ->infolist([
                         \Filament\Infolists\Components\Section::make('Informações da Mensagem')
                             ->columns(2)
@@ -208,7 +210,7 @@ class WhatsAppLogResource extends Resource
                             ]),
                     ]),
             ])
-            ->recordAction(\Filament\Tables\Actions\ViewAction::class)
+            ->recordAction('details')
             ->defaultSort('id', 'desc');
     }
 

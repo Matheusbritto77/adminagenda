@@ -114,11 +114,13 @@ class AppointmentFlowLogResource extends Resource
                     ]),
             ])
             ->actions([
-                \Filament\Tables\Actions\ViewAction::make()
+                \Filament\Actions\Action::make('details')
                     ->label('Detalhes')
                     ->icon('heroicon-o-eye')
                     ->modalHeading(fn ($record) => "Log #{$record->id} - {$record->title}")
                     ->modalWidth('2xl')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Fechar')
                     ->infolist([
                         \Filament\Infolists\Components\Section::make('Informações Gerais')
                             ->columns(2)
@@ -178,7 +180,7 @@ class AppointmentFlowLogResource extends Resource
                             ]),
                     ]),
             ])
-            ->recordAction(\Filament\Tables\Actions\ViewAction::class)
+            ->recordAction('details')
             ->defaultSort('id', 'desc');
     }
 
