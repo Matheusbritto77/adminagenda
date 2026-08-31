@@ -8,141 +8,146 @@
         $updatedAt = $status['updated_at'] ?? '';
     @endphp
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6" wire:poll.5s>
-        {{-- Status & Connection Card --}}
-        <div class="lg:col-span-1 space-y-6">
-            <div class="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm space-y-5">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                        <x-heroicon-o-signal class="w-5 h-5 text-amber-500" />
-                        Status da Conexão
-                    </h3>
-
-                    @if($state === 'connected')
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
-                            Conectado
-                        </span>
-                    @elseif($state === 'connecting' || $state === 'qr_ready')
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
-                            <span class="w-2 h-2 rounded-full bg-amber-500 mr-1.5 animate-ping"></span>
-                            Aguardando QR Code
-                        </span>
-                    @else
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
-                            <span class="w-2 h-2 rounded-full bg-gray-400 mr-1.5"></span>
-                            Desconectado
-                        </span>
-                    @endif
-                </div>
-
-                {{-- QR Code Display when Available --}}
-                @if($qrCode && $state !== 'connected')
-                    <div class="flex flex-col items-center justify-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
-                        <div class="p-2 bg-white rounded-lg shadow-sm">
-                            <img src="{{ $qrCode }}" alt="QR Code WhatsApp" class="w-48 h-48 object-contain" />
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;" wire:poll.5s>
+        {{-- Status & Connection Section --}}
+        <div>
+            <x-filament::section>
+                <x-slot name="heading">
+                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <x-filament::icon
+                                icon="heroicon-o-signal"
+                                style="width: 1.25rem; height: 1.25rem; color: #f59e0b;"
+                            />
+                            <span>Status da Conexão</span>
                         </div>
-                        <p class="text-xs text-center text-gray-500 dark:text-gray-400">
-                            Abra o WhatsApp no seu celular > <strong>Aparelhos conectados</strong> > <strong>Conectar um aparelho</strong> e aponte para a tela.
-                        </p>
-                    </div>
-                @endif
 
-                {{-- Connection Details --}}
-                <div class="space-y-3 text-sm text-gray-600 dark:text-gray-300">
-                    @if($phone)
-                        <div class="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                            <span class="text-gray-500 dark:text-gray-400">Número Conectado:</span>
-                            <span class="font-mono font-semibold text-gray-900 dark:text-white">+{{ $phone }}</span>
+                        <div>
+                            @if($state === 'connected')
+                                <x-filament::badge color="success" icon="heroicon-m-check-circle">
+                                    Conectado
+                                </x-filament::badge>
+                            @elseif($state === 'connecting' || $state === 'qr_ready')
+                                <x-filament::badge color="warning" icon="heroicon-m-arrow-path">
+                                    Aguardando QR Code
+                                </x-filament::badge>
+                            @else
+                                <x-filament::badge color="gray" icon="heroicon-m-x-circle">
+                                    Desconectado
+                                </x-filament::badge>
+                            @endif
+                        </div>
+                    </div>
+                </x-slot>
+
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                    {{-- QR Code Display --}}
+                    @if($qrCode && $state !== 'connected')
+                        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1rem; background: rgba(0,0,0,0.03); border-radius: 0.75rem; border: 1px dashed rgba(0,0,0,0.15);">
+                            <div style="padding: 0.5rem; background: #fff; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                <img src="{{ $qrCode }}" alt="QR Code WhatsApp" style="width: 13rem; height: 13rem; object-fit: contain;" />
+                            </div>
+                            <p style="font-size: 0.75rem; text-align: center; color: #6b7280; margin-top: 0.75rem;">
+                                Abra o WhatsApp > <strong>Aparelhos conectados</strong> > <strong>Conectar um aparelho</strong> e aponte para a tela.
+                            </p>
                         </div>
                     @endif
 
-                    @if($profileName)
-                        <div class="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                            <span class="text-gray-500 dark:text-gray-400">Nome de Perfil:</span>
-                            <span class="font-medium text-gray-900 dark:text-white">{{ $profileName }}</span>
+                    {{-- Connection Metadata --}}
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.875rem;">
+                        @if($phone)
+                            <div style="display: flex; justify-content: space-between; padding: 0.35rem 0; border-bottom: 1px solid rgba(0,0,0,0.06);">
+                                <span style="opacity: 0.7;">Número Conectado:</span>
+                                <span style="font-family: monospace; font-weight: 600;">+{{ $phone }}</span>
+                            </div>
+                        @endif
+
+                        @if($profileName)
+                            <div style="display: flex; justify-content: space-between; padding: 0.35rem 0; border-bottom: 1px solid rgba(0,0,0,0.06);">
+                                <span style="opacity: 0.7;">Nome de Perfil:</span>
+                                <span style="font-weight: 500;">{{ $profileName }}</span>
+                            </div>
+                        @endif
+
+                        <div style="display: flex; justify-content: space-between; padding: 0.35rem 0; border-bottom: 1px solid rgba(0,0,0,0.06);">
+                            <span style="opacity: 0.7;">Serviço gRPC:</span>
+                            <span style="font-family: monospace; font-size: 0.75rem;">
+                                {{ config('whatsapp.grpc_host', '127.0.0.1') }}:{{ config('whatsapp.grpc_port', 50051) }}
+                            </span>
                         </div>
-                    @endif
 
-                    <div class="flex justify-between py-2 border-b border-gray-100 dark:border-gray-800">
-                        <span class="text-gray-500 dark:text-gray-400">Serviço gRPC:</span>
-                        <span class="font-mono text-xs text-gray-700 dark:text-gray-300">
-                            {{ config('whatsapp.grpc_host', '127.0.0.1') }}:{{ config('whatsapp.grpc_port', 50051) }}
-                        </span>
+                        <div style="display: flex; justify-content: space-between; padding: 0.35rem 0;">
+                            <span style="opacity: 0.7;">Instância Tenant:</span>
+                            <span style="font-family: monospace; font-size: 0.75rem;">{{ $this->tenantId }}</span>
+                        </div>
                     </div>
 
-                    <div class="flex justify-between py-2">
-                        <span class="text-gray-500 dark:text-gray-400">Instância Tenant:</span>
-                        <span class="font-mono text-xs text-gray-700 dark:text-gray-300">{{ $this->tenantId }}</span>
-                    </div>
-                </div>
+                    {{-- Actions --}}
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+                        @if($state !== 'connected')
+                            <x-filament::button
+                                wire:click="connect"
+                                icon="heroicon-m-qr-code"
+                                color="warning"
+                                size="lg"
+                            >
+                                Conectar / Gerar QR Code
+                            </x-filament::button>
+                        @else
+                            <x-filament::button
+                                wire:click="disconnect"
+                                icon="heroicon-m-power"
+                                color="danger"
+                                size="lg"
+                            >
+                                Desconectar Sessão
+                            </x-filament::button>
+                        @endif
 
-                {{-- Action Buttons --}}
-                <div class="pt-2 flex flex-col gap-2">
-                    @if($state !== 'connected')
-                        <button
-                            type="button"
-                            wire:click="connect"
-                            wire:loading.attr="disabled"
-                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-medium text-sm rounded-xl transition duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        <x-filament::button
+                            wire:click="refreshStatus"
+                            icon="heroicon-m-arrow-path"
+                            color="gray"
+                            outlined
                         >
-                            <x-heroicon-o-qr-code class="w-5 h-5" />
-                            <span>Conectar / Gerar QR Code</span>
-                        </button>
-                    @else
-                        <button
-                            type="button"
-                            wire:click="disconnect"
-                            wire:loading.attr="disabled"
-                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium text-sm rounded-xl transition duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
-                        >
-                            <x-heroicon-o-power class="w-5 h-5" />
-                            <span>Desconectar Sessão</span>
-                        </button>
-                    @endif
-
-                    <button
-                        type="button"
-                        wire:click="refreshStatus"
-                        class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium text-sm rounded-xl transition duration-150"
-                    >
-                        <x-heroicon-o-arrow-path class="w-4 h-4" />
-                        <span>Atualizar Status</span>
-                    </button>
+                            Atualizar Status
+                        </x-filament::button>
+                    </div>
                 </div>
-            </div>
+            </x-filament::section>
         </div>
 
-        {{-- Test Message Card --}}
-        <div class="lg:col-span-2 space-y-6">
-            <div class="p-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm space-y-6">
-                <div class="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-800">
-                    <div>
-                        <h3 class="text-base font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                            <x-heroicon-o-paper-airplane class="w-5 h-5 text-amber-500" />
-                            Enviar Mensagem de Teste
-                        </h3>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Dispare uma mensagem via bridge gRPC para testar a comunicação com o serviço Baileys.
-                        </p>
+        {{-- Test Message Section --}}
+        <div>
+            <x-filament::section>
+                <x-slot name="heading">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <x-filament::icon
+                            icon="heroicon-o-paper-airplane"
+                            style="width: 1.25rem; height: 1.25rem; color: #f59e0b;"
+                        />
+                        <span>Enviar Mensagem de Teste</span>
                     </div>
-                </div>
+                </x-slot>
 
-                <form wire:submit.prevent="sendTestMessage" class="space-y-4">
+                <x-slot name="description">
+                    Dispare uma mensagem via bridge gRPC para testar a comunicação com o serviço Baileys.
+                </x-slot>
+
+                <form wire:submit.prevent="sendTestMessage" style="display: flex; flex-direction: column; gap: 1rem;">
                     {{ $this->form }}
 
-                    <div class="pt-4 flex justify-end">
-                        <button
+                    <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
+                        <x-filament::button
                             type="submit"
-                            wire:loading.attr="disabled"
-                            class="inline-flex items-center gap-2 px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-medium text-sm rounded-xl transition duration-150 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            icon="heroicon-m-paper-airplane"
+                            color="primary"
                         >
-                            <x-heroicon-o-paper-airplane class="w-4 h-4" />
-                            <span>Enviar Mensagem</span>
-                        </button>
+                            Enviar Mensagem
+                        </x-filament::button>
                     </div>
                 </form>
-            </div>
+            </x-filament::section>
         </div>
     </div>
 </x-filament-panels::page>
