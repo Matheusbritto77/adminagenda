@@ -21,13 +21,21 @@ $password = getenv("DB_PASSWORD");
 $database = getenv("DB_DATABASE");
 
 if (file_exists("/var/www/html/.env")) {
-    $env = file_get_contents("/var/www/html/.env");
-    if (!$host && preg_match("/^DB_HOST=(.*)$/m", $env, $m)) $host = trim($m[1], "\"' \r\n");
-    if (!$driver && preg_match("/^DB_CONNECTION=(.*)$/m", $env, $m)) $driver = trim($m[1], "\"' \r\n");
-    if (!$port && preg_match("/^DB_PORT=(.*)$/m", $env, $m)) $port = trim($m[1], "\"' \r\n");
-    if (!$user && preg_match("/^DB_USERNAME=(.*)$/m", $env, $m)) $user = trim($m[1], "\"' \r\n");
-    if (!$password && preg_match("/^DB_PASSWORD=(.*)$/m", $env, $m)) $password = trim($m[1], "\"' \r\n");
-    if (!$database && preg_match("/^DB_DATABASE=(.*)$/m", $env, $m)) $database = trim($m[1], "\"' \r\n");
+    $lines = file("/var/www/html/.env", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line !== "" && strpos($line, "#") !== 0 && strpos($line, "=") !== false) {
+            list($k, $v) = explode("=", $line, 2);
+            $k = trim($k);
+            $v = trim($v, " \"\t\r\n");
+            if ($k === "DB_HOST" && !$host) $host = $v;
+            if ($k === "DB_CONNECTION" && !$driver) $driver = $v;
+            if ($k === "DB_PORT" && !$port) $port = $v;
+            if ($k === "DB_USERNAME" && !$user) $user = $v;
+            if ($k === "DB_PASSWORD" && !$password) $password = $v;
+            if ($k === "DB_DATABASE" && !$database) $database = $v;
+        }
+    }
 }
 
 $driver = $driver ?: "mysql";
@@ -44,17 +52,10 @@ if (empty($host)) {
 
 echo "Waiting for database ({$driver}) at {$host}:{$port}...\n";
 
-switch ($driver) {
-    case "pgsql":
-        $dsn = "pgsql:host={$host};port={$port};dbname={$database}";
-        break;
-    case "mysql":
-    case "mariadb":
-        $dsn = "mysql:host={$host};port={$port};dbname={$database}";
-        break;
-    default:
-        $dsn = "{$driver}:host={$host};port={$port};dbname={$database}";
-        break;
+if ($driver === "pgsql") {
+    $dsn = "pgsql:host={$host};port={$port};dbname={$database}";
+} else {
+    $dsn = "mysql:host={$host};port={$port};dbname={$database}";
 }
 
 $attempts = 0;
