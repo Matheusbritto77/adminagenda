@@ -157,6 +157,15 @@
                                 Atualizar
                             </x-filament::button>
                         </div>
+
+                        <x-filament::button
+                            wire:click="resetSession"
+                            icon="heroicon-m-arrow-path-rounded-square"
+                            color="gray"
+                            size="sm"
+                        >
+                            Resetar Credenciais / Novo QR Code
+                        </x-filament::button>
                     </div>
                 </div>
             </x-filament::section>

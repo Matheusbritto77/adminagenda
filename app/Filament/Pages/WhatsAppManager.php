@@ -115,6 +115,19 @@ class WhatsAppManager extends Page
             ->send();
     }
 
+    public function resetSession(): void
+    {
+        $client = app(GrpcBridgeClient::class);
+        $client->disconnect($this->tenantId);
+        $result = $client->connect($this->tenantId);
+
+        Notification::make()
+            ->title('Sessão Reiniciada')
+            ->body('As credenciais foram limpas e um novo QR Code está sendo gerado.')
+            ->info()
+            ->send();
+    }
+
     public function sendTestMessage(): void
     {
         $data = $this->form->getState();
