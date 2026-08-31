@@ -7,16 +7,12 @@ use App\Services\WhatsApp\GrpcBridgeClient;
 use BackedEnum;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Contracts\HasForms;
-use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Schema;
 
-class WhatsAppManager extends Page implements HasForms
+class WhatsAppManager extends Page
 {
-    use InteractsWithForms;
-
     protected static string | BackedEnum | null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
 
     protected static ?string $navigationLabel = 'WhatsApp Gateway';
@@ -29,8 +25,7 @@ class WhatsAppManager extends Page implements HasForms
 
     protected string $view = 'filament.pages.whatsapp-manager';
 
-    public ?string $recipient = '';
-    public ?string $message = '';
+    public ?array $data = [];
     public string $tenantId = 'default';
 
     public function mount(): void
@@ -38,10 +33,10 @@ class WhatsAppManager extends Page implements HasForms
         $this->form->fill();
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
-            ->schema([
+        return $schema
+            ->components([
                 TextInput::make('recipient')
                     ->label('Número do Destinatário')
                     ->placeholder('5511999998888 (com DDI e DDD)')
@@ -53,7 +48,8 @@ class WhatsAppManager extends Page implements HasForms
                     ->placeholder('Olá! Esta é uma mensagem de teste enviada pelo Agendae Admin.')
                     ->rows(3)
                     ->required(),
-            ]);
+            ])
+            ->statePath('data');
     }
 
     public function getSessionProperty(): ?WhatsAppSession
@@ -105,7 +101,7 @@ class WhatsAppManager extends Page implements HasForms
                 ->success()
                 ->send();
 
-            $this->form->fill(['recipient' => '', 'message' => '']);
+            $this->form->fill();
         } else {
             Notification::make()
                 ->title('Erro ao enviar mensagem')
