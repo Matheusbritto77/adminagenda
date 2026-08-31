@@ -4,8 +4,10 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\WhatsAppQueueResource\Pages;
 use App\Models\WhatsAppNotificationQueue;
+use App\Services\WhatsApp\GrpcBridgeClient;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -81,12 +83,12 @@ class WhatsAppQueueResource extends Resource
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'sent' => 'success',
-                        'processing' => 'warning',
+                        'processing' => 'info',
                         'failed' => 'danger',
-                        default => 'gray',
+                        default => 'warning',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'sent' => 'Enviado',
+                        'sent' => 'Enviado / Processado',
                         'processing' => 'Processando',
                         'failed' => 'Falhou',
                         'pending' => 'Pendente',
@@ -95,8 +97,14 @@ class WhatsAppQueueResource extends Resource
 
                 TextColumn::make('message_body')
                     ->label('Conteúdo')
-                    ->limit(40)
+                    ->limit(45)
                     ->tooltip(fn ($record) => $record->message_body),
+
+                TextColumn::make('error_message')
+                    ->label('Erro')
+                    ->limit(25)
+                    ->color('danger')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('scheduled_for')
                     ->label('Agendado para')
@@ -115,7 +123,7 @@ class WhatsAppQueueResource extends Resource
                     ->options([
                         'pending' => 'Pendente',
                         'processing' => 'Processando',
-                        'sent' => 'Enviado',
+                        'sent' => 'Enviado / Processado',
                         'failed' => 'Falhou',
                     ]),
 
