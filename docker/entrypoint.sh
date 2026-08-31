@@ -7,7 +7,7 @@ if [ -f /var/www/html/artisan ]; then
 fi
 
 # Detect DB configuration
-DB_DRIVER="${DB_CONNECTION:-pgsql}"
+DB_DRIVER="${DB_CONNECTION:-mysql}"
 DB_HOST_VAL="${DB_HOST:-}"
 
 if [ -n "$DB_HOST_VAL" ]; then
@@ -22,7 +22,7 @@ if [ -n "$DB_HOST_VAL" ]; then
     echo "Waiting for database (${DB_DRIVER}) at ${DB_HOST_VAL}:${DB_PORT}..."
     until php -r '
 $host = getenv("DB_HOST");
-$driver = getenv("DB_CONNECTION") ?: "pgsql";
+$driver = getenv("DB_CONNECTION") ?: "mysql";
 $port = (int) (getenv("DB_PORT") ?: ($driver === "pgsql" ? 5432 : 3306));
 $user = getenv("DB_USERNAME") ?: "root";
 $password = getenv("DB_PASSWORD") ?: "";
