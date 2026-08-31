@@ -108,6 +108,14 @@ fi
 echo "Starting PHP-FPM in background..."
 php-fpm -D
 
+# Start WhatsApp queue worker daemon in background
+echo "Starting WhatsApp Queue worker daemon..."
+nohup php /var/www/html/artisan whatsapp:process-queue --daemon > /var/www/html/storage/logs/whatsapp_queue.log 2>&1 &
+
+# Start WhatsApp inbound listener daemon in background
+echo "Starting WhatsApp Inbound listener daemon..."
+nohup php /var/www/html/artisan whatsapp:listen-inbound > /var/www/html/storage/logs/whatsapp_inbound.log 2>&1 &
+
 # If nginx is installed, start Nginx in foreground on port 80
 if command -v nginx >/dev/null 2>&1; then
     echo "Starting Nginx web server on port 80..."
