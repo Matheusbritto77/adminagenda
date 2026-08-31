@@ -86,12 +86,30 @@ class GrpcBridgeClient
 
             if ($response->successful()) {
                 $data = $response->json();
+                $state = $data['state'] ?? 'disconnected';
+                $phone = $data['phone_number'] ?? '';
+                $profile = $data['profile_name'] ?? '';
+                $qrCode = $data['qr_code'] ?? '';
+
+                // Keep MySQL record in 100% sync with live state
+                try {
+                    $session = WhatsAppSession::where('tenant_id', $tenantId)->first();
+                    if ($session && ($session->status !== $state || ($phone && $session->phone_number !== $phone))) {
+                        $session->update([
+                            'status' => $state,
+                            'phone_number' => $phone ?: $session->phone_number,
+                            'profile_name' => $profile ?: $session->profile_name,
+                            'qr_code' => $qrCode ?: null,
+                        ]);
+                    }
+                } catch (Throwable) {}
+
                 return [
-                    'state' => $data['state'] ?? 'disconnected',
-                    'phone_number' => $data['phone_number'] ?? '',
-                    'profile_name' => $data['profile_name'] ?? '',
+                    'state' => $state,
+                    'phone_number' => $phone,
+                    'profile_name' => $profile,
                     'tenant_id' => $tenantId,
-                    'qr_code' => $data['qr_code'] ?? '',
+                    'qr_code' => $qrCode,
                     'updated_at' => $data['updated_at'] ?? now()->toIso8601String(),
                 ];
             }
