@@ -24,7 +24,10 @@ class AgendaeUserResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Empresas & Contas';
 
-    protected static ?string $navigationGroup = 'Gestão Agendae';
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Gestão Agendae';
+    }
 
     protected static ?int $navigationSort = 1;
 

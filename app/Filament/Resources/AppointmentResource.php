@@ -21,9 +21,10 @@ class AppointmentResource extends Resource
 
     protected static ?string $modelLabel = 'Agendamento';
 
-    protected static ?string $pluralModelLabel = 'Agendamentos';
-
-    protected static ?string $navigationGroup = 'Gestão Agendae';
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Gestão Agendae';
+    }
 
     protected static ?int $navigationSort = 2;
 

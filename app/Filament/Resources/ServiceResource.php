@@ -21,9 +21,10 @@ class ServiceResource extends Resource
 
     protected static ?string $modelLabel = 'Serviço';
 
-    protected static ?string $pluralModelLabel = 'Serviços Cadastrados';
-
-    protected static ?string $navigationGroup = 'Gestão Agendae';
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Gestão Agendae';
+    }
 
     protected static ?int $navigationSort = 4;
 

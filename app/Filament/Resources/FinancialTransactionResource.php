@@ -21,9 +21,10 @@ class FinancialTransactionResource extends Resource
 
     protected static ?string $modelLabel = 'Transação';
 
-    protected static ?string $pluralModelLabel = 'Transações Financeiras';
-
-    protected static ?string $navigationGroup = 'Gestão Agendae';
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Gestão Agendae';
+    }
 
     protected static ?int $navigationSort = 3;
 
