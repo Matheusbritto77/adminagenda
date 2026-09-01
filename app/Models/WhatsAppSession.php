@@ -14,6 +14,7 @@ class WhatsAppSession extends Model
         'phone_number',
         'profile_name',
         'qr_code',
+        'pairing_code',
         'creds',
         'connected_at',
         'last_activity_at',

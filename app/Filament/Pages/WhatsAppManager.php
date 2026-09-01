@@ -28,6 +28,8 @@ class WhatsAppManager extends Page
     public ?array $data = [];
     public string $tenantId = 'default';
     public ?array $connectionTestResult = null;
+    public string $pairingPhoneNumber = '';
+    public string $connectionMode = 'pairing_code'; // Default to phone pairing for convenience
 
     public function mount(): void
     {
@@ -93,8 +95,19 @@ class WhatsAppManager extends Page
 
     public function connect(): void
     {
+        $phone = $this->connectionMode === 'pairing_code' ? preg_replace('/\D/', '', $this->pairingPhoneNumber) : null;
+        
+        if ($this->connectionMode === 'pairing_code' && empty($phone)) {
+            Notification::make()
+                ->title('Informe o número de telefone')
+                ->body('Digite o número com DDI e DDD (ex: 5511999998888) para gerar o código de 8 dígitos.')
+                ->warning()
+                ->send();
+            return;
+        }
+
         $client = app(GrpcBridgeClient::class);
-        $result = $client->connect($this->tenantId);
+        $result = $client->connect($this->tenantId, $phone);
 
         Notification::make()
             ->title('Solicitação de Conexão')
@@ -119,11 +132,13 @@ class WhatsAppManager extends Page
     {
         $client = app(GrpcBridgeClient::class);
         $client->disconnect($this->tenantId);
-        $result = $client->connect($this->tenantId);
+
+        $phone = $this->connectionMode === 'pairing_code' ? preg_replace('/\D/', '', $this->pairingPhoneNumber) : null;
+        $result = $client->connect($this->tenantId, $phone);
 
         Notification::make()
             ->title('Sessão Reiniciada')
-            ->body('As credenciais foram limpas e um novo QR Code está sendo gerado.')
+            ->body('As credenciais foram limpas e um novo código/QR está sendo gerado.')
             ->info()
             ->send();
     }

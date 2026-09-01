@@ -90,6 +90,7 @@ class GrpcBridgeClient
                 $phone = $data['phone_number'] ?? '';
                 $profile = $data['profile_name'] ?? '';
                 $qrCode = $data['qr_code'] ?? '';
+                $pairingCode = $data['pairing_code'] ?? '';
 
                 // Keep MySQL record in 100% sync with live state
                 try {
@@ -100,6 +101,7 @@ class GrpcBridgeClient
                             'phone_number' => $phone ?: $session->phone_number,
                             'profile_name' => $profile ?: $session->profile_name,
                             'qr_code' => $qrCode ?: null,
+                            'pairing_code' => $pairingCode ?: null,
                         ]);
                     }
                 } catch (Throwable) {}
@@ -110,6 +112,7 @@ class GrpcBridgeClient
                     'profile_name' => $profile,
                     'tenant_id' => $tenantId,
                     'qr_code' => $qrCode,
+                    'pairing_code' => $pairingCode,
                     'updated_at' => $data['updated_at'] ?? now()->toIso8601String(),
                 ];
             }
@@ -119,7 +122,7 @@ class GrpcBridgeClient
             try {
                 $session = WhatsAppSession::where('tenant_id', $tenantId)->first();
                 if ($session && $session->status !== 'disconnected') {
-                    $session->update(['status' => 'disconnected', 'qr_code' => null]);
+                    $session->update(['status' => 'disconnected', 'qr_code' => null, 'pairing_code' => null]);
                 }
             } catch (Throwable) {}
 
@@ -129,6 +132,7 @@ class GrpcBridgeClient
                 'profile_name' => '',
                 'tenant_id' => $tenantId,
                 'qr_code' => '',
+                'pairing_code' => '',
                 'updated_at' => now()->toIso8601String(),
             ];
         }
@@ -139,14 +143,15 @@ class GrpcBridgeClient
             'profile_name' => '',
             'tenant_id' => $tenantId,
             'qr_code' => '',
+            'pairing_code' => '',
             'updated_at' => now()->toIso8601String(),
         ];
     }
 
     /**
-     * Request connection / QR code generation
+     * Request connection / QR code generation or Pairing Code with Phone Number
      */
-    public function connect(string $tenantId = 'default'): array
+    public function connect(string $tenantId = 'default', ?string $phoneNumber = null): array
     {
         // Update DB state
         try {
@@ -159,15 +164,19 @@ class GrpcBridgeClient
 
         // Send HTTP trigger to agenwpp
         try {
-            $response = Http::timeout(3.0)->post("http://{$this->host}:{$this->httpPort}/connect", [
-                'tenant_id' => $tenantId,
-            ]);
+            $payload = ['tenant_id' => $tenantId];
+            if ($phoneNumber) {
+                $payload['phone_number'] = $phoneNumber;
+            }
+
+            $response = Http::timeout(3.0)->post("http://{$this->host}:{$this->httpPort}/connect", $payload);
 
             if ($response->successful()) {
                 $data = $response->json();
                 return [
                     'status' => $data['status'] ?? 'connecting',
                     'qr_code' => $data['qr_code'] ?? '',
+                    'pairing_code' => $data['pairing_code'] ?? '',
                     'message' => $data['message'] ?? 'Conectando ao WhatsApp...',
                 ];
             }
@@ -177,7 +186,7 @@ class GrpcBridgeClient
 
         return [
             'status' => 'connecting',
-            'message' => 'Solicitação enviada. Aguardando QR Code.',
+            'message' => 'Solicitação enviada. Aguardando código de conexão.',
         ];
     }
 
