@@ -52,7 +52,10 @@ class ProcessWhatsAppQueue extends Command
                             $this->info("✓ Enviada com sucesso para {$item->recipient_phone}");
                         } else {
                             $errorMessage = $result['error'] ?? 'Falha ao enviar mensagem';
-                            $newStatus = $item->attempts >= 3 ? 'failed' : 'pending';
+                            
+                            // If number does not exist on WhatsApp, fail immediately to prevent ban
+                            $isInvalidNumber = str_contains($errorMessage, 'não possui conta') || str_contains($errorMessage, 'Anti-Ban');
+                            $newStatus = ($item->attempts >= 3 || $isInvalidNumber) ? 'failed' : 'pending';
 
                             $item->update([
                                 'status' => $newStatus,
@@ -60,6 +63,9 @@ class ProcessWhatsAppQueue extends Command
                             ]);
                             $this->error("✗ Falha ao enviar para {$item->recipient_phone}: {$errorMessage}");
                         }
+
+                        // 🛡️ Anti-Ban: Human delay between each queue item (2.0s - 4.5s with jitter)
+                        usleep(random_int(2000000, 4500000));
                     }
                 }
             } catch (Throwable $e) {
