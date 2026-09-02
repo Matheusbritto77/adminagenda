@@ -33,12 +33,14 @@ class WhatsAppInteractiveApprovalService
         $isRejection = false;
         $appointmentId = null;
 
-        if (preg_match('/^(?:SIM|S|APROVAR|CONFIRMAR|CONFIRMADO|OK|1)\s*#?(\d+)?$/i', $rawMessage, $matches)) {
+        $cleanedText = preg_replace('/[^\p{L}\p{N}\s#]/u', '', $rawMessage);
+
+        if (preg_match('/^(?:SIM|S|APROVAR|CONFIRMAR|CONFIRMADO|OK|1)\b(?:\s*#?(\d+))?/i', $cleanedText, $matches)) {
             $isApproval = true;
             if (!empty($matches[1])) {
                 $appointmentId = (int) $matches[1];
             }
-        } elseif (preg_match('/^(?:NAO|NÃO|N|RECUSAR|CANCELAR|CANCELADO|2)\s*#?(\d+)?$/i', $rawMessage, $matches)) {
+        } elseif (preg_match('/^(?:NAO|NÃO|N|RECUSAR|CANCELAR|CANCELADO|2)\b(?:\s*#?(\d+))?/i', $cleanedText, $matches)) {
             $isRejection = true;
             if (!empty($matches[1])) {
                 $appointmentId = (int) $matches[1];
