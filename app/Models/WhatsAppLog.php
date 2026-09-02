@@ -10,7 +10,6 @@ class WhatsAppLog extends Model
 {
     use HasFactory;
 
-    protected $connection = 'agendae';
     protected $table = 'whatsapp_logs';
 
     public $timestamps = false;
