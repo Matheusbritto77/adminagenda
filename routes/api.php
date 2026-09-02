@@ -31,3 +31,12 @@ Route::post('/whatsapp/inbound-event', function (Request $request, WhatsAppInter
 
     return response()->json(['status' => 'ignored']);
 });
+
+/**
+ * Meta Official WhatsApp Cloud API Webhook Endpoints
+ * Verification: GET /api/whatsapp/meta-webhook
+ * Inbound Events & Replies: POST /api/whatsapp/meta-webhook
+ */
+Route::get('/whatsapp/meta-webhook', [\App\Http\Controllers\Api\MetaWhatsAppWebhookController::class, 'verify']);
+Route::post('/whatsapp/meta-webhook', [\App\Http\Controllers\Api\MetaWhatsAppWebhookController::class, 'handle']);
+

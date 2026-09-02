@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'meta_whatsapp' => [
+        'verify_token' => env('META_WHATSAPP_VERIFY_TOKEN', 'agendae_meta_verify_token'),
+        'access_token' => env('META_WHATSAPP_ACCESS_TOKEN'),
+        'phone_number_id' => env('META_WHATSAPP_PHONE_NUMBER_ID'),
+        'waba_id' => env('META_WHATSAPP_WABA_ID'),
+        'api_version' => env('META_WHATSAPP_API_VERSION', 'v21.0'),
+    ],
+
 ];
