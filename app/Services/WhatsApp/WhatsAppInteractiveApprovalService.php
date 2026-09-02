@@ -156,7 +156,30 @@ class WhatsAppInteractiveApprovalService
                 ]);
             }
 
-            // Send confirmation receipt to the business owner
+            // Enqueue notification for assigned professional / team member if different from sender
+            if ($appointment->teamMember && !empty($appointment->teamMember->phone)) {
+                $teamPhone = preg_replace('/\D/', '', $appointment->teamMember->phone);
+                if ($teamPhone && $teamPhone !== $cleanPhone && $teamPhone !== preg_replace('/\D/', '', $appointment->client_phone ?? '')) {
+                    $teamMessage = "📅 *Novo Agendamento Confirmado para Você!*\n\n"
+                        . "👤 *Cliente:* {$appointment->client_name}\n"
+                        . "📅 *Data:* {$formattedDate} às {$formattedTime}\n"
+                        . "✂️ *Serviço:* {$serviceName}\n"
+                        . "📞 *WhatsApp do Cliente:* {$appointment->client_phone}";
+
+                    WhatsAppNotificationQueue::create([
+                        'user_id' => $appointment->user_id,
+                        'appointment_id' => $appointment->id,
+                        'recipient_phone' => $teamPhone,
+                        'recipient_name' => $appointment->teamMember->name,
+                        'message_type' => 'confirmed',
+                        'message_body' => $teamMessage,
+                        'status' => 'pending',
+                        'scheduled_for' => now(),
+                    ]);
+                }
+            }
+
+            // Send confirmation receipt to the person who responded SIM
             $replyText = "✅ *Agendamento #{$appointment->id} Aprovado com Sucesso!*\n\n"
                 . "👤 *Cliente:* {$appointment->client_name}\n"
                 . "📅 *Data:* {$formattedDate} às {$formattedTime}\n"
@@ -214,7 +237,29 @@ class WhatsAppInteractiveApprovalService
                 ]);
             }
 
-            // Send rejection receipt to the business owner
+            // Enqueue notification for assigned professional / team member if different from sender
+            if ($appointment->teamMember && !empty($appointment->teamMember->phone)) {
+                $teamPhone = preg_replace('/\D/', '', $appointment->teamMember->phone);
+                if ($teamPhone && $teamPhone !== $cleanPhone && $teamPhone !== preg_replace('/\D/', '', $appointment->client_phone ?? '')) {
+                    $teamMessage = "🚫 *Agendamento #{$appointment->id} Cancelado/Recusado*\n\n"
+                        . "👤 *Cliente:* {$appointment->client_name}\n"
+                        . "📅 *Data:* {$formattedDate} às {$formattedTime}\n"
+                        . "✂️ *Serviço:* {$serviceName}";
+
+                    WhatsAppNotificationQueue::create([
+                        'user_id' => $appointment->user_id,
+                        'appointment_id' => $appointment->id,
+                        'recipient_phone' => $teamPhone,
+                        'recipient_name' => $appointment->teamMember->name,
+                        'message_type' => 'cancelled',
+                        'message_body' => $teamMessage,
+                        'status' => 'pending',
+                        'scheduled_for' => now(),
+                    ]);
+                }
+            }
+
+            // Send rejection receipt to the person who responded NAO
             $replyText = "🚫 *Agendamento #{$appointment->id} Recusado.*\n\n"
                 . "👤 *Cliente:* {$appointment->client_name}\n"
                 . "📅 *Data:* {$formattedDate} às {$formattedTime}\n\n"
