@@ -230,7 +230,7 @@ class GrpcBridgeClient
     public function sendMessage(string $to, string $body, string $tenantId = 'default'): array
     {
         try {
-            $response = Http::timeout(5.0)->post("http://{$this->host}:{$this->httpPort}/send-message", [
+            $response = Http::timeout(25.0)->post("http://{$this->host}:{$this->httpPort}/send-message", [
                 'tenant_id' => $tenantId,
                 'to' => $to,
                 'body' => $body,
