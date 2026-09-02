@@ -51,6 +51,19 @@ class WhatsAppInteractiveApprovalService
             return null; // Regular chat message, ignore
         }
 
+        // 📌 Extract appointment ID from event payload or quoted text if provided by agenwpp
+        if (!$appointmentId && !empty($event->payload['appointment_id'])) {
+            $appointmentId = (int) $event->payload['appointment_id'];
+            Log::info("[WhatsApp Event Listener] Resolved Appointment #{$appointmentId} from Event payload");
+        }
+
+        if (!$appointmentId && !empty($event->payload['context_info']['quoted_text'])) {
+            if (preg_match('/#(\d+)/', $event->payload['context_info']['quoted_text'], $m)) {
+                $appointmentId = (int) $m[1];
+                Log::info("[WhatsApp Event Listener] Resolved Appointment #{$appointmentId} from Quoted Text in Event");
+            }
+        }
+
         // 2. Locate Target Appointment in Agendae database
         $appointment = null;
 
