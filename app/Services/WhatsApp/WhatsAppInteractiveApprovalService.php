@@ -125,16 +125,8 @@ class WhatsAppInteractiveApprovalService
             }
         }
 
-        // Fallback: latest pending appointment
         if (!$appointment) {
-            $appointment = Appointment::with(['service', 'teamMember', 'user'])
-                ->where('status', 'pending')
-                ->orderBy('id', 'desc')
-                ->first();
-        }
-
-        if (!$appointment) {
-            Log::warning("[WhatsApp Event Listener] No pending appointment found for response from {$cleanPhone}.");
+            Log::info("[WhatsApp Event Listener] No specific pending appointment matches response from {$cleanPhone}. Doing nothing.");
             return null;
         }
 
