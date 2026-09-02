@@ -137,6 +137,40 @@ class WhatsAppQueueResource extends Resource
                         'pix_payment' => 'Cobrança PIX',
                     ]),
             ])
+            ->recordAction('details')
+            ->actions([
+                Action::make('details')
+                    ->label('Ver Detalhes')
+                    ->icon('heroicon-m-eye')
+                    ->color('gray')
+                    ->modalHeading(fn ($record) => "Disparo da Fila #{$record->id} - {$record->recipient_phone}")
+                    ->modalWidth('2xl')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Fechar')
+                    ->modalContent(fn ($record) => view('filament.modals.queue-detail', ['record' => $record])),
+
+                Action::make('retry')
+                    ->label('Reenviar')
+                    ->icon('heroicon-m-arrow-path')
+                    ->color('warning')
+                    ->visible(fn ($record) => $record->status === 'failed')
+                    ->requiresConfirmation()
+                    ->modalHeading('Reenviar Mensagem')
+                    ->modalDescription('Deseja colocar esta mensagem de volta na fila para novo processamento?')
+                    ->action(function ($record) {
+                        $record->update([
+                            'status' => 'pending',
+                            'error_message' => null,
+                            'scheduled_for' => now(),
+                        ]);
+
+                        Notification::make()
+                            ->title('Mensagem reenfileirada!')
+                            ->body('A mensagem foi recolocada no status Pendente e será processada em instantes.')
+                            ->success()
+                            ->send();
+                    }),
+            ])
             ->defaultSort('id', 'desc');
     }
 
