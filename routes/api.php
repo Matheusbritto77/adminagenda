@@ -23,16 +23,10 @@ Route::post('/whatsapp/inbound-event', function (Request $request, WhatsAppInter
         $event = new WhatsAppMessageReceived($phone, $text, $tenantId, $messageId, $payload);
         event($event);
 
-        try {
-            $result = $approvalService->process($event);
-            return response()->json([
-                'status' => 'success',
-                'approval_result' => $result,
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('[API Inbound Approval Error] ' . $e->getMessage());
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
-        }
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Event dispatched and processed via listener',
+        ]);
     }
 
     return response()->json(['status' => 'ignored']);

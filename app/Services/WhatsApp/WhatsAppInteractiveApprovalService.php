@@ -33,14 +33,20 @@ class WhatsAppInteractiveApprovalService
         $isRejection = false;
         $appointmentId = null;
 
-        $cleanedText = preg_replace('/[^\p{L}\p{N}\s#]/u', '', $rawMessage);
+        $cleanedText = trim(preg_replace('/[^\p{L}\p{N}\s#]/u', '', $rawMessage));
 
-        if (preg_match('/^(?:SIM|S|APROVAR|CONFIRMAR|CONFIRMADO|OK|1)\b(?:\s*#?(\d+))?/i', $cleanedText, $matches)) {
+        // 🛑 Anti-Loop Guard 1: Approval/rejection commands are short (e.g. "SIM", "SIM 37", "NAO").
+        // Long messages (like notifications or receipts with > 25 chars) are NEVER approval commands!
+        if (mb_strlen($cleanedText) > 25) {
+            return null;
+        }
+
+        if (preg_match('/^(?:SIM|S|APROVAR|OK|1)\b(?:\s*#?(\d+))?$/i', $cleanedText, $matches)) {
             $isApproval = true;
             if (!empty($matches[1])) {
                 $appointmentId = (int) $matches[1];
             }
-        } elseif (preg_match('/^(?:NAO|NÃO|N|RECUSAR|CANCELAR|CANCELADO|2)\b(?:\s*#?(\d+))?/i', $cleanedText, $matches)) {
+        } elseif (preg_match('/^(?:NAO|NÃO|N|RECUSAR|CANCELAR|2)\b(?:\s*#?(\d+))?$/i', $cleanedText, $matches)) {
             $isRejection = true;
             if (!empty($matches[1])) {
                 $appointmentId = (int) $matches[1];
@@ -69,6 +75,12 @@ class WhatsAppInteractiveApprovalService
 
         if ($appointmentId) {
             $appointment = Appointment::with(['service', 'teamMember', 'user'])->find($appointmentId);
+        }
+
+        // 🛑 Anti-Loop Guard 2: Idempotency. If appointment is already confirmed/cancelled, STOP immediately!
+        if ($appointment && $appointment->status !== 'pending') {
+            Log::info("[WhatsApp Event Listener] Appointment #{$appointment->id} is already in status '{$appointment->status}'. Halting duplicate approval execution.");
+            return ['status' => 'already_processed', 'appointment_id' => $appointment->id];
         }
 
         // Search by recent notification sent to this phone
