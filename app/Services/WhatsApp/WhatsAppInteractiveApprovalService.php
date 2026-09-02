@@ -31,6 +31,7 @@ class WhatsAppInteractiveApprovalService
         // 1. Identify Intent (Approve or Reject)
         $isApproval = false;
         $isRejection = false;
+        $isReschedule = false;
         $appointmentId = null;
 
         $cleanedText = trim(preg_replace('/[^\p{L}\p{N}\s#]/u', '', $rawMessage));
@@ -51,9 +52,14 @@ class WhatsAppInteractiveApprovalService
             if (!empty($matches[1])) {
                 $appointmentId = (int) $matches[1];
             }
+        } elseif (preg_match('/^(?:REMARCAR|REAGENDAR|REMARCA|3)\b(?:\s*#?(\d+))?$/i', $cleanedText, $matches)) {
+            $isReschedule = true;
+            if (!empty($matches[1])) {
+                $appointmentId = (int) $matches[1];
+            }
         }
 
-        if (!$isApproval && !$isRejection) {
+        if (!$isApproval && !$isRejection && !$isReschedule) {
             return null; // Regular chat message, ignore
         }
 
@@ -332,6 +338,95 @@ class WhatsAppInteractiveApprovalService
                 'action' => 'rejected',
                 'appointment_id' => $appointment->id,
                 'reply' => $replyText,
+            ];
+        }
+
+        // 5. Process Reschedule Request (REMARCAR)
+        if ($isReschedule) {
+            $appointment->update([
+                'status' => 'cancelled',
+                'notes' => trim(($appointment->notes ?? '') . ' [Remarcação solicitada pelo estabelecimento via WhatsApp]'),
+            ]);
+
+            // Cancel any pending reminder for this appointment
+            try {
+                WhatsAppNotificationQueue::query()
+                    ->where('appointment_id', $appointment->id)
+                    ->where('message_type', 'reminder')
+                    ->where('status', 'pending')
+                    ->update(['status' => 'cancelled']);
+            } catch (Throwable) {}
+
+            // Resolve public booking URL
+            $bookingUrl = $appointment->user?->publicBookingUrl() ?: 'https://agenda-app-d2lmgn-e3defc-209-126-81-68.sslip.io';
+
+            // Insert flow log
+            try {
+                AppointmentFlowLog::create([
+                    'user_id' => $appointment->user_id,
+                    'appointment_id' => $appointment->id,
+                    'event_type' => 'status_changed',
+                    'level' => 'warning',
+                    'channel' => 'whatsapp',
+                    'title' => 'Solicitação de Remarcação via WhatsApp',
+                    'description' => "O profissional respondeu 'REMARCAR'. Solicitamos ao cliente {$appointment->client_name} que escolha um novo horário pelo link.",
+                    'metadata' => [
+                        'phone' => $cleanPhone,
+                        'raw_message' => $rawMessage,
+                        'new_status' => 'cancelled',
+                        'booking_url' => $bookingUrl,
+                    ],
+                    'created_at' => now(),
+                ]);
+            } catch (Throwable) {}
+
+            // Send notification to Client with personalized booking URL
+            if (!empty($appointment->client_phone)) {
+                $clientCleanPhone = preg_replace('/\D/', '', $appointment->client_phone);
+                $customerMessage = "🔄 *Solicitação de Remarcação - {$companyName}*\n\n"
+                    . "Olá, {$appointment->client_name}! ✨\n\n"
+                    . "O estabelecimento informou que precisará remarcar o seu agendamento inicial:\n"
+                    . "📅 *Data anterior:* {$formattedDate} às {$formattedTime}\n"
+                    . "✂️ *Serviço:* {$serviceName}\n\n"
+                    . "👉 *Por favor, escolha um novo dia e horário de sua preferência no link abaixo:*\n"
+                    . "🔗 {$bookingUrl}\n\n"
+                    . "Agradecemos muito pela compreensão!";
+
+                // 1. Enqueue in WhatsApp queue
+                WhatsAppNotificationQueue::create([
+                    'user_id' => $appointment->user_id,
+                    'appointment_id' => $appointment->id,
+                    'recipient_phone' => $appointment->client_phone,
+                    'recipient_name' => $appointment->client_name,
+                    'message_type' => 'cancelled',
+                    'message_body' => $customerMessage,
+                    'status' => 'pending',
+                    'scheduled_for' => now(),
+                ]);
+
+                // 2. Immediate direct dispatch to client via bridge
+                try {
+                    $this->grpcClient->sendMessage($clientCleanPhone, $customerMessage, $event->tenantId);
+                } catch (Throwable) {}
+            }
+
+            // Send confirmation receipt to the professional/company
+            $replyText = "🔄 *Solicitação de Remarcação Enviada!*\n\n"
+                . "👤 *Cliente:* {$appointment->client_name}\n"
+                . "📅 *Agendamento:* #{$appointment->id}\n\n"
+                . "📲 Enviamos uma mensagem no WhatsApp do cliente com o link da sua empresa para que ele escolha um novo horário:\n"
+                . "🔗 {$bookingUrl}";
+
+            $targetRecipient = !empty($meta['jid']) ? $meta['jid'] : $cleanPhone;
+            $this->grpcClient->sendMessage($targetRecipient, $replyText, $event->tenantId);
+
+            Log::info("[WhatsApp Event Listener] Appointment #{$appointment->id} RESCHEDULE requested. Client directed to {$bookingUrl}.");
+
+            return [
+                'action' => 'rescheduled',
+                'appointment_id' => $appointment->id,
+                'reply' => $replyText,
+                'booking_url' => $bookingUrl,
             ];
         }
 

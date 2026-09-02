@@ -52,4 +52,17 @@ class AgendaeUser extends Model
     {
         return $this->hasMany(FinancialTransaction::class, 'user_id');
     }
+
+    public function publicBookingUrl(string $path = '/'): string
+    {
+        $appUrl = env('AGENDAE_APP_URL', 'http://agenda-app-d2lmgn:80');
+        $publicUrl = env('APP_PUBLIC_URL', env('AGENDAE_PUBLIC_URL', 'http://agenda-app-d2lmgn-e3defc-209-126-81-68.sslip.io'));
+        
+        $base = rtrim($publicUrl, '/');
+        if ($this->subdomain) {
+            return "{$base}/{$this->subdomain}";
+        }
+
+        return "{$base}/" . ltrim($path, '/');
+    }
 }
