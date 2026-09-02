@@ -179,6 +179,34 @@ class WhatsAppInteractiveApprovalService
                 }
             }
 
+            // ⏰ Schedule Advance Reminder NOW that the appointment is confirmed
+            if (!empty($appointment->client_phone) && $appointment->appointment_date && $appointment->appointment_time) {
+                try {
+                    $appointmentDateTime = Carbon::parse($appointment->appointment_date->format('Y-m-d') . ' ' . $appointment->appointment_time);
+                    $reminderTime = $appointmentDateTime->copy()->subHours(2);
+                    
+                    if ($reminderTime->isFuture()) {
+                        $reminderBody = "⏰ *Lembrete de Agendamento - {$companyName}*\n\n"
+                            . "Olá, {$appointment->client_name}! Lembramos que você tem um horário marcado hoje:\n"
+                            . "📅 *Data:* {$formattedDate}\n"
+                            . "⏰ *Horário:* {$formattedTime}\n"
+                            . "✂️ *Serviço:* {$serviceName}\n\n"
+                            . "Esperamos por você!";
+
+                        WhatsAppNotificationQueue::create([
+                            'user_id' => $appointment->user_id,
+                            'appointment_id' => $appointment->id,
+                            'recipient_phone' => $appointment->client_phone,
+                            'recipient_name' => $appointment->client_name,
+                            'message_type' => 'reminder',
+                            'message_body' => $reminderBody,
+                            'status' => 'pending',
+                            'scheduled_for' => $reminderTime,
+                        ]);
+                    }
+                } catch (\Throwable) {}
+            }
+
             // Send confirmation receipt to the person who responded SIM
             $replyText = "✅ *Agendamento #{$appointment->id} Aprovado com Sucesso!*\n\n"
                 . "👤 *Cliente:* {$appointment->client_name}\n"
@@ -220,6 +248,14 @@ class WhatsAppInteractiveApprovalService
                     'created_at' => now(),
                 ]);
             } catch (Throwable) {}
+
+            // Cancel any pending scheduled reminders for this appointment
+            try {
+                WhatsAppNotificationQueue::where('appointment_id', $appointment->id)
+                    ->where('message_type', 'reminder')
+                    ->where('status', 'pending')
+                    ->update(['status' => 'cancelled']);
+            } catch (\Throwable) {}
 
             // Enqueue customer cancellation notification
             if (!empty($appointment->client_phone)) {
