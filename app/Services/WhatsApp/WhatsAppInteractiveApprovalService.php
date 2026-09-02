@@ -57,16 +57,18 @@ class WhatsAppInteractiveApprovalService
             return null; // Regular chat message, ignore
         }
 
+        $meta = !empty($event->payload) ? $event->payload : ($event->metadata ?? []);
+
         // 📌 Extract appointment ID from event payload or quoted text if provided by agenwpp
-        if (!$appointmentId && !empty($event->payload['appointment_id'])) {
-            $appointmentId = (int) $event->payload['appointment_id'];
-            Log::info("[WhatsApp Event Listener] Resolved Appointment #{$appointmentId} from Event payload");
+        if (!$appointmentId && !empty($meta['appointment_id'])) {
+            $appointmentId = (int) $meta['appointment_id'];
+            Log::info("[WhatsApp Event Listener] Resolved Appointment #{$appointmentId} from Event metadata/payload");
         }
 
-        if (!$appointmentId && !empty($event->payload['context_info']['quoted_text'])) {
-            if (preg_match('/#(\d+)/', $event->payload['context_info']['quoted_text'], $m)) {
+        if (!$appointmentId && !empty($meta['context_info']['quoted_text'])) {
+            if (preg_match('/#(\d+)/', $meta['context_info']['quoted_text'], $m)) {
                 $appointmentId = (int) $m[1];
-                Log::info("[WhatsApp Event Listener] Resolved Appointment #{$appointmentId} from Quoted Text in Event");
+                Log::info("[WhatsApp Event Listener] Resolved Appointment #{$appointmentId} from Quoted Text in Event metadata");
             }
         }
 
@@ -233,7 +235,8 @@ class WhatsAppInteractiveApprovalService
                 . "✂️ *Serviço:* {$serviceName}\n\n"
                 . "✨ O cliente foi notificado pelo WhatsApp com a confirmação!";
 
-            $this->grpcClient->sendMessage($cleanPhone, $replyText, $event->tenantId);
+            $targetRecipient = !empty($meta['jid']) ? $meta['jid'] : $cleanPhone;
+            $this->grpcClient->sendMessage($targetRecipient, $replyText, $event->tenantId);
 
             Log::info("[WhatsApp Event Listener] Appointment #{$appointment->id} APPROVED and confirmed.");
 
@@ -320,7 +323,8 @@ class WhatsAppInteractiveApprovalService
                 . "📅 *Data:* {$formattedDate} às {$formattedTime}\n\n"
                 . "O cliente foi notificado sobre o cancelamento.";
 
-            $this->grpcClient->sendMessage($cleanPhone, $replyText, $event->tenantId);
+            $targetRecipient = !empty($meta['jid']) ? $meta['jid'] : $cleanPhone;
+            $this->grpcClient->sendMessage($targetRecipient, $replyText, $event->tenantId);
 
             Log::info("[WhatsApp Event Listener] Appointment #{$appointment->id} REJECTED.");
 

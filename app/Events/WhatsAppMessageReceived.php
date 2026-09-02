@@ -15,6 +15,7 @@ class WhatsAppMessageReceived
     public string $message;
     public ?string $messageId;
     public array $metadata;
+    public array $payload;
 
     public function __construct(
         string $phone,
@@ -28,5 +29,6 @@ class WhatsAppMessageReceived
         $this->tenantId = $tenantId;
         $this->messageId = $messageId;
         $this->metadata = $metadata;
+        $this->payload = $metadata;
     }
 }
