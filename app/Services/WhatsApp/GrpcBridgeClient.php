@@ -80,12 +80,14 @@ class GrpcBridgeClient
         $latencyMs = round((microtime(true) - $startTime) * 1000, 2);
 
         return [
+            'success' => $socketConnected || $httpConnected,
             'connected' => $socketConnected || $httpConnected,
             'socket_connected' => $socketConnected,
             'http_connected' => $httpConnected,
             'latency_ms' => $latencyMs,
             'host' => $this->host,
             'port' => $this->port,
+            'grpc_port' => $this->port,
             'http_port' => $this->httpPort,
             'tls' => $this->tls,
             'http_info' => $httpResponse,

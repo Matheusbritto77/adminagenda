@@ -72,21 +72,27 @@ class WhatsAppManager extends Page
         $result = $client->testConnection();
         $this->connectionTestResult = $result;
 
-        if ($result['success']) {
+        $isOk = !empty($result['success']) || !empty($result['connected']);
+        $host = $result['host'] ?? '127.0.0.1';
+        $grpcPort = $result['grpc_port'] ?? $result['port'] ?? 50051;
+        $httpPort = $result['http_port'] ?? 50052;
+        $latency = $result['latency_ms'] ?? 0;
+
+        if ($isOk) {
             $ports = [];
-            if ($result['socket_connected']) $ports[] = "gRPC (:{$result['grpc_port']})";
-            if ($result['http_connected']) $ports[] = "HTTP (:{$result['http_port']})";
-            $portsStr = implode(' e ', $ports);
+            if (!empty($result['socket_connected'])) $ports[] = "gRPC (:{$grpcPort})";
+            if (!empty($result['http_connected'])) $ports[] = "HTTP (:{$httpPort})";
+            $portsStr = !empty($ports) ? implode(' e ', $ports) : 'gRPC/HTTP';
 
             Notification::make()
                 ->title('Comunicação OK!')
-                ->body("Conectado com sucesso em {$result['host']} via {$portsStr} em {$result['latency_ms']}ms.")
+                ->body("Conectado com sucesso em {$host} via {$portsStr} em {$latency}ms.")
                 ->success()
                 ->send();
         } else {
             Notification::make()
                 ->title('Falha de Comunicação')
-                ->body("Não foi possível conectar em {$result['host']}:{$result['grpc_port']}. Detalhes: " . ($result['error'] ?? 'Sem resposta'))
+                ->body("Não foi possível conectar em {$host}:{$grpcPort}. Detalhes: " . ($result['error'] ?? 'Sem resposta'))
                 ->danger()
                 ->persistent()
                 ->send();
