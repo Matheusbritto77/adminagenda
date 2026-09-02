@@ -26,6 +26,21 @@ class GrpcBridgeClient
     }
 
     /**
+     * Get list of candidate hosts to try if primary host has DNS resolution failure
+     */
+    private function getCandidateHosts(): array
+    {
+        $hosts = array_filter([$this->host]);
+        $fallbacks = ['agenwpp', 'agenda-wpp', 'agenda-agenwpp', '127.0.0.1', 'localhost', 'host.docker.internal'];
+        foreach ($fallbacks as $fb) {
+            if (!in_array($fb, $hosts)) {
+                $hosts[] = $fb;
+            }
+        }
+        return $hosts;
+    }
+
+    /**
      * Test TCP socket connectivity and HTTP bridge health check
      */
     public function testConnection(): array
@@ -36,115 +51,95 @@ class GrpcBridgeClient
         $httpResponse = null;
         $errorMessage = null;
 
-        // 1. Test TCP Socket on gRPC port
-        $fp = @fsockopen($this->host, $this->port, $errno, $errstr, 2.0);
-        if ($fp) {
-            $socketConnected = true;
-            fclose($fp);
-        } else {
-            $errorMessage = "Socket gRPC ({$this->host}:{$this->port}) falhou: {$errstr} ({$errno})";
-        }
-
-        // 2. Test HTTP Bridge health on port 50052
-        try {
-            $response = Http::timeout(2.5)->get("http://{$this->host}:{$this->httpPort}/health");
-            if ($response->successful()) {
-                $httpConnected = true;
-                $httpResponse = $response->json();
+        foreach ($this->getCandidateHosts() as $candidateHost) {
+            // 1. Test TCP Socket on gRPC port
+            $fp = @fsockopen($candidateHost, $this->port, $errno, $errstr, 1.5);
+            if ($fp) {
+                $socketConnected = true;
+                fclose($fp);
+                $this->host = $candidateHost;
             }
-        } catch (Throwable $e) {
-            if (!$errorMessage) {
-                $errorMessage = "HTTP Bridge ({$this->host}:{$this->httpPort}) falhou: " . $e->getMessage();
+
+            // 2. Test HTTP Bridge health on port 50052
+            try {
+                $response = Http::timeout(2.0)->get("http://{$candidateHost}:{$this->httpPort}/health");
+                if ($response->successful()) {
+                    $httpConnected = true;
+                    $httpResponse = $response->json();
+                    $this->host = $candidateHost;
+                    $errorMessage = null;
+                    break;
+                }
+            } catch (Throwable $e) {
+                if (!$errorMessage) {
+                    $errorMessage = "HTTP Bridge ({$candidateHost}:{$this->httpPort}) falhou: " . $e->getMessage();
+                }
             }
         }
 
         $latencyMs = round((microtime(true) - $startTime) * 1000, 2);
 
         return [
-            'success' => $socketConnected || $httpConnected,
+            'connected' => $socketConnected || $httpConnected,
             'socket_connected' => $socketConnected,
             'http_connected' => $httpConnected,
-            'host' => $this->host,
-            'grpc_port' => $this->port,
-            'http_port' => $this->httpPort,
             'latency_ms' => $latencyMs,
-            'error' => $errorMessage,
-            'http_data' => $httpResponse,
+            'host' => $this->host,
+            'port' => $this->port,
+            'http_port' => $this->httpPort,
+            'tls' => $this->tls,
+            'http_info' => $httpResponse,
+            'error' => ($socketConnected || $httpConnected) ? null : $errorMessage,
         ];
     }
 
     /**
-     * Get current WhatsApp connection status
+     * Fetch WhatsApp connection status from MySQL session record and HTTP bridge
      */
     public function getStatus(string $tenantId = 'default'): array
     {
-        // 1. Try direct HTTP bridge status query (source of truth)
+        // 1. Try DB read first
         try {
-            $response = Http::timeout(1.2)->get("http://{$this->host}:{$this->httpPort}/status", [
-                'tenant_id' => $tenantId,
-            ]);
-
-            if ($response->successful()) {
-                $data = $response->json();
-                $state = $data['state'] ?? 'disconnected';
-                $phone = $data['phone_number'] ?? '';
-                $profile = $data['profile_name'] ?? '';
-                $qrCode = $data['qr_code'] ?? '';
-                $pairingCode = $data['pairing_code'] ?? '';
-
-                // Keep MySQL record in 100% sync with live state
-                try {
-                    $session = WhatsAppSession::where('tenant_id', $tenantId)->first();
-                    if ($session && ($session->status !== $state || ($phone && $session->phone_number !== $phone))) {
-                        $session->update([
-                            'status' => $state,
-                            'phone_number' => $phone ?: $session->phone_number,
-                            'profile_name' => $profile ?: $session->profile_name,
-                            'qr_code' => $qrCode ?: null,
-                            'pairing_code' => $pairingCode ?: null,
-                        ]);
-                    }
-                } catch (Throwable) {}
-
+            $session = WhatsAppSession::where('tenant_id', $tenantId)->first();
+            if ($session) {
                 return [
-                    'state' => $state,
-                    'phone_number' => $phone,
-                    'profile_name' => $profile,
-                    'tenant_id' => $tenantId,
-                    'qr_code' => $qrCode,
-                    'pairing_code' => $pairingCode,
-                    'updated_at' => $data['updated_at'] ?? now()->toIso8601String(),
+                    'status' => $session->status ?? 'disconnected',
+                    'phone_number' => $session->phone_number ?? '',
+                    'profile_name' => $session->profile_name ?? '',
+                    'qr_code' => $session->qr_code ?? '',
+                    'pairing_code' => $session->pairing_code ?? '',
+                    'connected_at' => $session->connected_at ? $session->connected_at->toIso8601String() : null,
+                    'disconnected_at' => $session->disconnected_at ? $session->disconnected_at->toIso8601String() : null,
+                    'updated_at' => $session->updated_at ? $session->updated_at->toIso8601String() : null,
                 ];
             }
-        } catch (Throwable) {
-            // Live service is unreachable (instance down/crashed)
-            // Immediately mark disconnected in DB so UI never shows false connected state!
+        } catch (Throwable $e) {
+            Log::warning('[WhatsApp] DB status check failed: ' . $e->getMessage());
+        }
+
+        // 2. Fallback to HTTP Bridge query
+        foreach ($this->getCandidateHosts() as $candidateHost) {
             try {
-                $session = WhatsAppSession::where('tenant_id', $tenantId)->first();
-                if ($session && $session->status !== 'disconnected') {
-                    $session->update(['status' => 'disconnected', 'qr_code' => null, 'pairing_code' => null]);
+                $response = Http::timeout(2.0)->get("http://{$candidateHost}:{$this->httpPort}/status", [
+                    'tenant_id' => $tenantId,
+                ]);
+
+                if ($response->successful()) {
+                    $this->host = $candidateHost;
+                    return $response->json();
                 }
             } catch (Throwable) {}
-
-            return [
-                'state' => 'disconnected',
-                'phone_number' => '',
-                'profile_name' => '',
-                'tenant_id' => $tenantId,
-                'qr_code' => '',
-                'pairing_code' => '',
-                'updated_at' => now()->toIso8601String(),
-            ];
         }
 
         return [
-            'state' => 'disconnected',
+            'status' => 'disconnected',
             'phone_number' => '',
             'profile_name' => '',
-            'tenant_id' => $tenantId,
             'qr_code' => '',
             'pairing_code' => '',
-            'updated_at' => now()->toIso8601String(),
+            'connected_at' => null,
+            'disconnected_at' => null,
+            'updated_at' => null,
         ];
     }
 
@@ -163,25 +158,28 @@ class GrpcBridgeClient
         } catch (Throwable) {}
 
         // Send HTTP trigger to agenwpp
-        try {
-            $payload = ['tenant_id' => $tenantId];
-            if ($phoneNumber) {
-                $payload['phone_number'] = $phoneNumber;
-            }
+        $payload = ['tenant_id' => $tenantId];
+        if ($phoneNumber) {
+            $payload['phone_number'] = $phoneNumber;
+        }
 
-            $response = Http::timeout(3.0)->post("http://{$this->host}:{$this->httpPort}/connect", $payload);
+        foreach ($this->getCandidateHosts() as $candidateHost) {
+            try {
+                $response = Http::timeout(3.5)->post("http://{$candidateHost}:{$this->httpPort}/connect", $payload);
 
-            if ($response->successful()) {
-                $data = $response->json();
-                return [
-                    'status' => $data['status'] ?? 'connecting',
-                    'qr_code' => $data['qr_code'] ?? '',
-                    'pairing_code' => $data['pairing_code'] ?? '',
-                    'message' => $data['message'] ?? 'Conectando ao WhatsApp...',
-                ];
+                if ($response->successful()) {
+                    $this->host = $candidateHost;
+                    $data = $response->json();
+                    return [
+                        'status' => $data['status'] ?? 'connecting',
+                        'qr_code' => $data['qr_code'] ?? '',
+                        'pairing_code' => $data['pairing_code'] ?? '',
+                        'message' => $data['message'] ?? 'Conectando ao WhatsApp...',
+                    ];
+                }
+            } catch (Throwable $e) {
+                Log::warning("[WhatsApp] HTTP connect call to {$candidateHost} failed: " . $e->getMessage());
             }
-        } catch (Throwable $e) {
-            Log::warning('[WhatsApp] HTTP connect call failed: ' . $e->getMessage());
         }
 
         return [
@@ -195,16 +193,18 @@ class GrpcBridgeClient
      */
     public function disconnect(string $tenantId = 'default'): array
     {
-        // Send HTTP trigger to agenwpp
-        try {
-            $response = Http::timeout(3.0)->post("http://{$this->host}:{$this->httpPort}/disconnect", [
-                'tenant_id' => $tenantId,
-            ]);
+        foreach ($this->getCandidateHosts() as $candidateHost) {
+            try {
+                $response = Http::timeout(3.0)->post("http://{$candidateHost}:{$this->httpPort}/disconnect", [
+                    'tenant_id' => $tenantId,
+                ]);
 
-            if ($response->successful()) {
-                return $response->json();
-            }
-        } catch (Throwable) {}
+                if ($response->successful()) {
+                    $this->host = $candidateHost;
+                    return $response->json();
+                }
+            } catch (Throwable) {}
+        }
 
         // Fallback update DB
         try {
@@ -213,6 +213,7 @@ class GrpcBridgeClient
                 $session->update([
                     'status' => 'disconnected',
                     'qr_code' => null,
+                    'pairing_code' => null,
                     'disconnected_at' => now(),
                 ]);
             }
@@ -229,26 +230,36 @@ class GrpcBridgeClient
      */
     public function sendMessage(string $to, string $body, string $tenantId = 'default'): array
     {
-        try {
-            $response = Http::timeout(25.0)->post("http://{$this->host}:{$this->httpPort}/send-message", [
-                'tenant_id' => $tenantId,
-                'to' => $to,
-                'body' => $body,
-            ]);
+        $lastError = 'Host não encontrado';
 
-            if ($response->successful()) {
-                return $response->json();
+        foreach ($this->getCandidateHosts() as $candidateHost) {
+            try {
+                $response = Http::timeout(25.0)->post("http://{$candidateHost}:{$this->httpPort}/send-message", [
+                    'tenant_id' => $tenantId,
+                    'to' => $to,
+                    'body' => $body,
+                ]);
+
+                if ($response->successful()) {
+                    $this->host = $candidateHost;
+                    return $response->json();
+                }
+
+                $error = $response->json('error');
+                if ($error) {
+                    return [
+                        'status' => 'failed',
+                        'error' => $error,
+                    ];
+                }
+            } catch (Throwable $e) {
+                $lastError = $e->getMessage();
             }
-
-            return [
-                'status' => 'failed',
-                'error' => $response->json('error') ?? 'Erro ao enviar mensagem via bridge.',
-            ];
-        } catch (Throwable $e) {
-            return [
-                'status' => 'failed',
-                'error' => 'Falha na comunicação com o agenwpp: ' . $e->getMessage(),
-            ];
         }
+
+        return [
+            'status' => 'failed',
+            'error' => "Falha na comunicação com o agenwpp ({$this->host}:{$this->httpPort}): {$lastError}",
+        ];
     }
 }
